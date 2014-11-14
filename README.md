@@ -1,6 +1,5 @@
 MedievalWarfare
 ===============
-
-Medusa'a coders Game
+Medusa
 
 Using Violet 0.21
