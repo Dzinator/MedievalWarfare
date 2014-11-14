@@ -1,6 +1,10 @@
 MedievalWarfare
 ===============
 
-Johnny
+Medusa's Coders Game
 
-Using Violet 0.21
+Requirements Models are due on november 21
+
+** Remeber that we are using Violet 0.21 **
+
+-

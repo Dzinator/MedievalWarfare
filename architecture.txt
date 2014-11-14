@@ -1,0 +1,14 @@
+We have a server and clients, each client is an executable and the server is also an executable
+
+Server and clients keep a log of events happening through the game.
+
+Server keeps the statistics and saves them in a file.
+
+Server has the responsability of checking after each turn if someone won the game.
+
+When a player launches his client it asks him to login and then chooses either to host a game or join a game.
+When joining a game the server sends the client the list of currently waiting games.
+Choosing one of those games gets the client to the set up screen of the choosen game.
+
+
+
