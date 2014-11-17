@@ -20,6 +20,7 @@ Game Service:
 	serve as a message broker for the all the clients in a game. The server will keep a map that is in sync with the latest map of the clients. It will communicate with client using Remote Procedure Call.
 	If a client had made a game move, it would send a message to the server, the server would then update itself's map and then push the update to all the other clients. The update will only succeed if the sender received a confirmation from the recipient, if not succeed, it will block and wait until timeout, and the client will be considered disconnected from the server.
 	The Game Service will also be in charge of notifying the client of the turn change, the game win and ending the game.
+	Only the server can generate trees and gold at the end of each turn.
 
 The Client
 +-----------------------+
