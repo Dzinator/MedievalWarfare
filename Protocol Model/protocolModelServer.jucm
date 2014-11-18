@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<urn:URNspec xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ucm.map="http:///ucm/map.ecore" xmlns:urn="http:///urn.ecore" name="URNspec" author="Yanis" created="November 17, 2014 9:51:21 PM EST" modified="November 17, 2014 10:22:01 PM EST" specVersion="2" urnVersion="1.27" nextGlobalID="135">
+  <ucmspec>
+    <scenarioGroups name="ScenarioGroup5" id="5">
+      <scenarios name="ScenarioDef6" id="6"/>
+    </scenarioGroups>
+  </ucmspec>
+  <grlspec>
+    <groups name="StrategiesGroup3" id="3" strategies="4"/>
+    <strategies name="EvaluationStrategy4" id="4" author="Yanis" group="3"/>
+    <impactModel/>
+    <indicatorGroup name="Time" id="7" isRedesignCategory="true"/>
+    <indicatorGroup name="Cost" id="8" isRedesignCategory="true"/>
+    <indicatorGroup name="Quality" id="9" isRedesignCategory="true"/>
+    <indicatorGroup name="Flexibility" id="10" isRedesignCategory="true"/>
+    <featureModel/>
+  </grlspec>
+  <urndef>
+    <responsibilities name="Validate The Turn" id="29" respRefs="14"/>
+    <responsibilities name="Process other players turns" id="30" respRefs="15"/>
+    <responsibilities name="Initialize game" id="31" respRefs="18"/>
+    <responsibilities name="Distribute the map to players" id="32" respRefs="21"/>
+    <responsibilities name="retrieve username stats" id="33" respRefs="23"/>
+    <responsibilities name="Create Username" id="34" respRefs="26"/>
+    <responsibilities name="end Game" id="115" respRefs="116"/>
+    <responsibilities name="update players stats" id="121" respRefs="122"/>
+    <specDiagrams xsi:type="ucm.map:UCMmap" name="UCMmap2" id="2">
+      <nodes xsi:type="ucm.map:RespRef" name="RespRef775" id="15" x="528" y="141" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.3" pred="//@urndef/@specDiagrams.0/@connections.11" respDef="30">
+        <label deltaX="9" deltaY="-3"/>
+      </nodes>
+      <nodes xsi:type="ucm.map:StartPoint" name="create username" id="27" x="223" y="-36" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.8">
+        <label/>
+        <precondition deltaX="40" deltaY="-17" label="" expression="true"/>
+      </nodes>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="EmptyPoint763" id="13" x="263" y="178" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.0" pred="//@urndef/@specDiagrams.0/@connections.2"/>
+      <nodes xsi:type="ucm.map:StartPoint" name="load username" id="24" x="160" y="60" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.7">
+        <label/>
+        <precondition deltaX="40" deltaY="-17" label="" expression="true"/>
+      </nodes>
+      <nodes xsi:type="ucm.map:StartPoint" name="turn played" id="12" x="161" y="175" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.2">
+        <label/>
+        <precondition deltaX="40" deltaY="-17" label="" expression="true"/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="RespRef791" id="21" x="936" y="-2" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.9" pred="//@urndef/@specDiagrams.0/@connections.6" respDef="32">
+        <label deltaX="-34" deltaY="-48"/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="RespRef771" id="14" x="358" y="181" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.4" pred="//@urndef/@specDiagrams.0/@connections.0" respDef="29">
+        <label deltaX="1" deltaY="-36"/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="RespRef766" id="23" x="270" y="59" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.10" pred="//@urndef/@specDiagrams.0/@connections.7" respDef="33">
+        <label deltaX="10" deltaY="-41"/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="RespRef787" id="18" x="798" y="-18" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.6" pred="//@urndef/@specDiagrams.0/@connections.5" respDef="31">
+        <label deltaX="13" deltaY="-47"/>
+      </nodes>
+      <nodes xsi:type="ucm.map:StartPoint" name="start game" id="20" x="720" y="-17" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.5">
+        <label/>
+        <precondition deltaX="40" deltaY="-17" label="" expression="true"/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="RespRef758" id="26" x="334" y="-33" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.1" pred="//@urndef/@specDiagrams.0/@connections.8" respDef="34">
+        <label deltaX="-5" deltaY="-41"/>
+      </nodes>
+      <nodes xsi:type="ucm.map:Stub" name="Client" id="50" x="474" y="-30" contRef="36" pred="//@urndef/@specDiagrams.0/@connections.1">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:Stub" name="Client" id="55" x="470" y="69" contRef="36" pred="//@urndef/@specDiagrams.0/@connections.10">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:Stub" name="Client" id="59" x="717" y="146" contRef="36" pred="//@urndef/@specDiagrams.0/@connections.3">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:Stub" name="Client" id="65" x="1142" y="-9" contRef="36" pred="//@urndef/@specDiagrams.0/@connections.9">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:OrFork" name="OrFork87" id="87" x="432" y="183" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.11 //@urndef/@specDiagrams.0/@connections.12" pred="//@urndef/@specDiagrams.0/@connections.4"/>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="EmptyPoint88" id="88" x="435" y="263" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.13" pred="//@urndef/@specDiagrams.0/@connections.12"/>
+      <nodes xsi:type="ucm.map:RespRef" name="RespRef116" id="116" x="497" y="328" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.14" pred="//@urndef/@specDiagrams.0/@connections.13" respDef="115">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="RespRef122" id="122" x="595" y="330" contRef="36" succ="//@urndef/@specDiagrams.0/@connections.15" pred="//@urndef/@specDiagrams.0/@connections.14" respDef="121">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:Stub" name="Client" id="125" x="738" y="338" contRef="36" pred="//@urndef/@specDiagrams.0/@connections.15">
+        <label/>
+      </nodes>
+      <contRefs xsi:type="ucm.map:ComponentRef" name="ComponentRef36" id="36" x="67" y="-103" width="1123" height="544" contDef="35" nodes="27 26 15 13 21 14 23 18 24 50 55 12 59 20 65 87 88 116 122 125">
+        <label/>
+      </contRefs>
+      <connections xsi:type="ucm.map:NodeConnection" source="13" target="14"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="26" target="50"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="12" target="13"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="15" target="59"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="14" target="87"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="20" target="18"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="18" target="21"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="24" target="23"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="27" target="26"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="21" target="65"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="23" target="55"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="87" target="15">
+        <condition label="" expression="true"/>
+      </connections>
+      <connections xsi:type="ucm.map:NodeConnection" source="87" target="88">
+        <condition label="win state reached" expression="true"/>
+      </connections>
+      <connections xsi:type="ucm.map:NodeConnection" source="88" target="116"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="116" target="122"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="122" target="125"/>
+    </specDiagrams>
+    <components name="Server" id="35" contRefs="36" kind="Actor"/>
+  </urndef>
+  <metadata name="_Use0to100EvaluationRange" value="false"/>
+</urn:URNspec>
