@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<java version="1.8.0_25" class="java.beans.XMLDecoder">
+<java version="1.7.0_51" class="java.beans.XMLDecoder">
  <object class="com.horstmann.violet.UseCaseDiagramGraph">
   <void method="addNode">
    <object class="com.horstmann.violet.ActorNode" id="ActorNode0">
@@ -14,19 +14,19 @@
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double0"/>
-      <double>106.0</double>
+      <double>22.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double0"/>
-      <double>150.0</double>
+      <double>331.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>106.0</double>
-     <double>150.0</double>
+     <double>22.0</double>
+     <double>331.0</double>
     </void>
    </object>
   </void>
@@ -43,19 +43,19 @@
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double1"/>
-      <double>338.0</double>
+      <double>406.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double1"/>
-      <double>168.0</double>
+      <double>349.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>338.0</double>
-     <double>168.0</double>
+     <double>406.0</double>
+     <double>349.0</double>
     </void>
    </object>
   </void>
@@ -72,24 +72,24 @@
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double2"/>
-      <double>606.0</double>
+      <double>692.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double2"/>
-      <double>154.0</double>
+      <double>334.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>606.0</double>
-     <double>154.0</double>
+     <double>692.0</double>
+     <double>334.0</double>
     </void>
    </object>
   </void>
   <void method="addNode">
-   <object class="com.horstmann.violet.NoteNode" id="NoteNode0">
+   <object class="com.horstmann.violet.NoteNode">
     <void property="text">
      <void property="text">
       <string>--&gt;
@@ -97,11 +97,20 @@ saveGame
 MainMenu
 Exit
 EndTurn
-
-buildMeadow
+becomeHost(Player p)
 buildRoad
-upgradeUnit
-combine</string>
+Infantry upgradeUnit(Peasant p)
+Soldier upgrade(Infantry i)
+Knight upgrade(Soldier s)
+Infantry combine(Peasant p1, Peasant p2)
+Soldier combine(Peasant p, Infantry i)
+Knight combine(Peasant p, Soldier s)
+Knight combine(Infantry i1, Infantry i2)
+moveVillager
+gatherWood
+clearTombstone
+cultivateMeadow
+invadeVillages</string>
      </void>
     </void>
    </object>
@@ -110,28 +119,28 @@ combine</string>
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double3"/>
-      <double>211.0</double>
+      <double>170.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double3"/>
-      <double>30.0</double>
+      <double>8.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>211.0</double>
-     <double>30.0</double>
+     <double>170.0</double>
+     <double>8.0</double>
     </void>
    </object>
   </void>
   <void method="addNode">
-   <object class="com.horstmann.violet.NoteNode" id="NoteNode1">
+   <object class="com.horstmann.violet.NoteNode">
     <void property="text">
      <void property="text">
       <string>&lt;--
-update()</string>
+updateGUI()</string>
      </void>
     </void>
    </object>
@@ -140,24 +149,24 @@ update()</string>
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double4"/>
-      <double>227.0</double>
+      <double>229.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double4"/>
-      <double>214.0</double>
+      <double>425.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>227.0</double>
-     <double>214.0</double>
+     <double>229.0</double>
+     <double>425.0</double>
     </void>
    </object>
   </void>
   <void method="addNode">
-   <object class="com.horstmann.violet.NoteNode" id="NoteNode2">
+   <object class="com.horstmann.violet.NoteNode">
     <void property="text">
      <void property="text">
       <string>--&gt;
@@ -170,24 +179,24 @@ sendData(event e)</string>
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double5"/>
-      <double>517.0</double>
+      <double>562.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double5"/>
-      <double>52.0</double>
+      <double>220.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>517.0</double>
-     <double>52.0</double>
+     <double>562.0</double>
+     <double>220.0</double>
     </void>
    </object>
   </void>
   <void method="addNode">
-   <object class="com.horstmann.violet.NoteNode" id="NoteNode3">
+   <object class="com.horstmann.violet.NoteNode">
     <void property="text">
      <void property="text">
       <string>&lt;--
@@ -200,19 +209,19 @@ loadData(event e)</string>
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double6"/>
-      <double>527.0</double>
+      <double>550.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double6"/>
-      <double>235.0</double>
+      <double>464.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>527.0</double>
-     <double>235.0</double>
+     <double>550.0</double>
+     <double>464.0</double>
     </void>
    </object>
   </void>
