@@ -14,19 +14,19 @@
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double0"/>
-      <double>139.0</double>
+      <double>668.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double0"/>
-      <double>214.0</double>
+      <double>346.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>139.0</double>
-     <double>214.0</double>
+     <double>668.0</double>
+     <double>346.0</double>
     </void>
    </object>
   </void>
@@ -43,19 +43,19 @@
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double1"/>
-      <double>436.0</double>
+      <double>965.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double1"/>
-      <double>229.0</double>
+      <double>372.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>436.0</double>
-     <double>229.0</double>
+     <double>965.0</double>
+     <double>372.0</double>
     </void>
    </object>
   </void>
@@ -63,8 +63,20 @@
    <object class="com.horstmann.violet.NoteNode" id="NoteNode0">
     <void property="text">
      <void property="text">
-      <string>--&gt;
-loadData(Event e)</string>
+      <string>--&gt;(Response)
+loginService.newAccount
+loginService.oldAccount
+LobbyService.returnOnlinePlayersWithStats
+LobbyService.returnExistingRooms
+Room LobbyService.returnNewRoom
+mapID/map RoomService.updateMap
+player[] RoomService.updatePlayers
+RoomService.gameStarted
+move GameService.updateMap # need details
+GameService.informPlayersTurn
+GameService.informPlayerVictoryOrLost
+GameService.promotePlayerToHost
+GameService.updatePlayersList # if a player left, inform other players</string>
      </void>
     </void>
    </object>
@@ -73,19 +85,19 @@ loadData(Event e)</string>
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double2"/>
-      <double>269.0</double>
+      <double>644.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double2"/>
-      <double>187.0</double>
+      <double>116.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>269.0</double>
-     <double>187.0</double>
+     <double>644.0</double>
+     <double>116.0</double>
     </void>
    </object>
   </void>
@@ -93,8 +105,18 @@ loadData(Event e)</string>
    <object class="com.horstmann.violet.NoteNode" id="NoteNode1">
     <void property="text">
      <void property="text">
-      <string>&lt;--
-sendData(Event e)</string>
+      <string>&lt;--(Request)
+loginService.login
+LobbyService.getOnlinePlayersWithStats
+LobbyService.getExistingRooms
+LobbyService.createNewRoom
+RoomService.changeMap(mapID or map) # just a map ID if default map
+RoomService.ready # guests
+RoomService.start # host
+GameService.someMove(move) # need details
+GameService.endTurn
+GameService.quitGame
+</string>
      </void>
     </void>
    </object>
@@ -103,19 +125,90 @@ sendData(Event e)</string>
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double3"/>
-      <double>274.0</double>
+      <double>641.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double3"/>
-      <double>271.0</double>
+      <double>448.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>274.0</double>
-     <double>271.0</double>
+     <double>641.0</double>
+     <double>448.0</double>
+    </void>
+   </object>
+  </void>
+  <void method="addNode">
+   <object class="com.horstmann.violet.NoteNode" id="NoteNode2">
+    <void property="text">
+     <void property="text">
+      <string>server private methods:
+loginService.addNewPlayer(player)
+loginService.playerLoggedIn(player)
+loginService.playerLoggedOut(player)
+Player[] loginService.getAllLoggedInPlayers()
+StatisticService.updatePlayerStats(player, stats)
+StatisticService.getPlayerStats(player)
+Room[] RoomService.getAllRooms()
+Room RoomService.createNewRoom(player)
+RoomService.removeRoom(Room)
+RoomService.isGameReady # check if every player is ready
+GameService.gameEnd # destroy the server gameEngine instance</string>
+     </void>
+    </void>
+   </object>
+   <object class="java.awt.geom.Point2D$Double" id="Point2D$Double4">
+    <void class="java.awt.geom.Point2D$Double" method="getField">
+     <string>x</string>
+     <void method="set">
+      <object idref="Point2D$Double4"/>
+      <double>199.0</double>
+     </void>
+    </void>
+    <void class="java.awt.geom.Point2D$Double" method="getField">
+     <string>y</string>
+     <void method="set">
+      <object idref="Point2D$Double4"/>
+      <double>302.0</double>
+     </void>
+    </void>
+    <void method="setLocation">
+     <double>199.0</double>
+     <double>302.0</double>
+    </void>
+   </object>
+  </void>
+  <void method="addNode">
+   <object class="com.horstmann.violet.NoteNode" id="NoteNode3">
+    <void property="text">
+     <void property="text">
+      <string>client private methods:
+GameService.validateMove
+GameService.saveGame</string>
+     </void>
+    </void>
+   </object>
+   <object class="java.awt.geom.Point2D$Double" id="Point2D$Double5">
+    <void class="java.awt.geom.Point2D$Double" method="getField">
+     <string>x</string>
+     <void method="set">
+      <object idref="Point2D$Double5"/>
+      <double>1097.0</double>
+     </void>
+    </void>
+    <void class="java.awt.geom.Point2D$Double" method="getField">
+     <string>y</string>
+     <void method="set">
+      <object idref="Point2D$Double5"/>
+      <double>347.0</double>
+     </void>
+    </void>
+    <void method="setLocation">
+     <double>1097.0</double>
+     <double>347.0</double>
     </void>
    </object>
   </void>
