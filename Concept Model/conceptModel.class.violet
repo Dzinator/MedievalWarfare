@@ -144,6 +144,7 @@ size</string>
     <void property="attributes">
      <void property="text">
       <string>name
+ID
 wins
 gamesPlayed</string>
      </void>
@@ -159,19 +160,19 @@ gamesPlayed</string>
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double4"/>
-      <double>1000.0</double>
+      <double>1003.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double4"/>
-      <double>167.0</double>
+      <double>143.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>1000.0</double>
-     <double>167.0</double>
+     <double>1003.0</double>
+     <double>143.0</double>
     </void>
    </object>
   </void>
