@@ -95,19 +95,19 @@ size</string>
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double2"/>
-      <double>395.0</double>
+      <double>162.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double2"/>
-      <double>169.0</double>
+      <double>177.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>395.0</double>
-     <double>169.0</double>
+     <double>162.0</double>
+     <double>177.0</double>
     </void>
    </object>
   </void>
@@ -124,19 +124,19 @@ size</string>
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double3"/>
-      <double>399.0</double>
+      <double>167.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double3"/>
-      <double>416.0</double>
+      <double>403.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>399.0</double>
-     <double>416.0</double>
+     <double>167.0</double>
+     <double>403.0</double>
     </void>
    </object>
   </void>
@@ -161,19 +161,19 @@ gamesPlayed</string>
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double4"/>
-      <double>1003.0</double>
+      <double>1006.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double4"/>
-      <double>143.0</double>
+      <double>159.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>1003.0</double>
-     <double>143.0</double>
+     <double>1006.0</double>
+     <double>159.0</double>
     </void>
    </object>
   </void>
@@ -525,6 +525,35 @@ so use is immited</string>
     </void>
    </object>
   </void>
+  <void method="addNode">
+   <object class="com.horstmann.violet.ClassNode" id="ClassNode14">
+    <void property="name">
+     <void property="text">
+      <string>UI</string>
+     </void>
+    </void>
+   </object>
+   <object class="java.awt.geom.Point2D$Double" id="Point2D$Double16">
+    <void class="java.awt.geom.Point2D$Double" method="getField">
+     <string>x</string>
+     <void method="set">
+      <object idref="Point2D$Double16"/>
+      <double>453.0</double>
+     </void>
+    </void>
+    <void class="java.awt.geom.Point2D$Double" method="getField">
+     <string>y</string>
+     <void method="set">
+      <object idref="Point2D$Double16"/>
+      <double>191.0</double>
+     </void>
+    </void>
+    <void method="setLocation">
+     <double>453.0</double>
+     <double>191.0</double>
+    </void>
+   </object>
+  </void>
   <void method="connect">
    <object class="com.horstmann.violet.ClassRelationshipEdge">
     <void property="bentStyle">
@@ -545,27 +574,6 @@ so use is immited</string>
    </object>
    <object idref="ClassNode0"/>
    <object idref="ClassNode4"/>
-  </void>
-  <void method="connect">
-   <object class="com.horstmann.violet.ClassRelationshipEdge">
-    <void property="bentStyle">
-     <object class="com.horstmann.violet.BentStyle" field="HVH"/>
-    </void>
-    <void property="endLabel">
-     <string>0...*</string>
-    </void>
-    <void property="middleLabel">
-     <string>has</string>
-    </void>
-    <void property="startArrowHead">
-     <object class="com.horstmann.violet.ArrowHead" field="DIAMOND"/>
-    </void>
-    <void property="startLabel">
-     <string>1</string>
-    </void>
-   </object>
-   <object idref="ClassNode0"/>
-   <object idref="ClassNode2"/>
   </void>
   <void method="connect">
    <object class="com.horstmann.violet.ClassRelationshipEdge">
@@ -773,6 +781,48 @@ so use is immited</string>
    </object>
    <object idref="ClassNode1"/>
    <object idref="ClassNode13"/>
+  </void>
+  <void method="connect">
+   <object class="com.horstmann.violet.ClassRelationshipEdge">
+    <void property="bentStyle">
+     <object class="com.horstmann.violet.BentStyle" field="HVH"/>
+    </void>
+    <void property="endLabel">
+     <string>1</string>
+    </void>
+    <void property="middleLabel">
+     <string>has</string>
+    </void>
+    <void property="startArrowHead">
+     <object class="com.horstmann.violet.ArrowHead" field="DIAMOND"/>
+    </void>
+    <void property="startLabel">
+     <string>1</string>
+    </void>
+   </object>
+   <object idref="ClassNode0"/>
+   <object idref="ClassNode14"/>
+  </void>
+  <void method="connect">
+   <object class="com.horstmann.violet.ClassRelationshipEdge">
+    <void property="bentStyle">
+     <object class="com.horstmann.violet.BentStyle" field="HVH"/>
+    </void>
+    <void property="endLabel">
+     <string>0...*</string>
+    </void>
+    <void property="middleLabel">
+     <string>is made up of</string>
+    </void>
+    <void property="startArrowHead">
+     <object class="com.horstmann.violet.ArrowHead" field="BLACK_DIAMOND"/>
+    </void>
+    <void property="startLabel">
+     <string>1</string>
+    </void>
+   </object>
+   <object idref="ClassNode14"/>
+   <object idref="ClassNode2"/>
   </void>
  </object>
 </java>
