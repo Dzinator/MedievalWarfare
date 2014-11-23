@@ -71,6 +71,7 @@ LobbyService.returnExistingRooms
 Room LobbyService.returnNewRoom
 mapID/map RoomService.updateMap
 player[] RoomService.updatePlayers
+RoomService.kickPlayer
 RoomService.gameStarted
 move GameService.updateMap # need details
 GameService.informPlayersTurn
@@ -85,19 +86,19 @@ GameService.updatePlayersList # if a player left, inform other players</string>
      <string>x</string>
      <void method="set">
       <object idref="Point2D$Double2"/>
-      <double>644.0</double>
+      <double>642.0</double>
      </void>
     </void>
     <void class="java.awt.geom.Point2D$Double" method="getField">
      <string>y</string>
      <void method="set">
       <object idref="Point2D$Double2"/>
-      <double>116.0</double>
+      <double>77.0</double>
      </void>
     </void>
     <void method="setLocation">
-     <double>644.0</double>
-     <double>116.0</double>
+     <double>642.0</double>
+     <double>77.0</double>
     </void>
    </object>
   </void>
@@ -106,7 +107,7 @@ GameService.updatePlayersList # if a player left, inform other players</string>
     <void property="text">
      <void property="text">
       <string>&lt;--(Request)
-loginService.login
+loginService.login(Username)
 LobbyService.getOnlinePlayersWithStats
 LobbyService.getExistingRooms
 LobbyService.createNewRoom
