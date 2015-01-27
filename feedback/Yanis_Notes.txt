@@ -1,9 +1,0 @@
-use case actor: many in general, one in particular
-
-	refer to other usecase or be <<input>> or <<output>>
-
-	Join: needs agreeing
-
-Concept Model: put *everything* in Concept Model
-
-Environment Model: needs all interaction(30 or so messages)

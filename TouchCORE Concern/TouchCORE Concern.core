@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="ASCII"?>
+<core:COREConcern xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://cs.mcgill.ca/sel/core/1.0" xmlns:fm="http:///fm.ecore" xmlns:grl="http:///grl.ecore" xmi:id="_KQWU0KXbEeS9wNeiJfkF8w" name="TouchCORE Concern">
+  <models xsi:type="fm:FeatureModel" href="TouchCORE%20Concern.jucm#//@grlspec/@featureModel"/>
+  <models xsi:type="grl:ImpactModel" href="TouchCORE%20Concern.jucm#//@grlspec/@impactModel"/>
+  <interface xmi:id="_KQW74KXbEeS9wNeiJfkF8w"/>
+</core:COREConcern>

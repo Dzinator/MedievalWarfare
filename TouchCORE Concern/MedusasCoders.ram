@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="ASCII"?>
+<ram:Aspect xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ram="http://cs.mcgill.ca/sel/ram/2.1" xmi:id="_OfdZkKXbEeS9wNeiJfkF8w" name="Medieval Warfare">
+  <structuralView xmi:id="_OfdZkaXbEeS9wNeiJfkF8w">
+    <classes xsi:type="ram:Class" xmi:id="_mTX6sKXbEeSYtblXNI2twA" name="Engine">
+      <operations xmi:id="_dDJdwKXhEeSYtblXNI2twA" name="generateMap" returnType="_T5zs8KXcEeSYtblXNI2twA"/>
+      <operations xmi:id="_iDnuAaXhEeSYtblXNI2twA" name="initPlayers" returnType="_iDnuAKXhEeSYtblXNI2twA"/>
+      <operations xmi:id="_oidZsKXhEeSYtblXNI2twA" name="populateMap" returnType="_OfdZkqXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_07_iMKXhEeSYtblXNI2twA" name="replaceTombs" returnType="_OfdZkqXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_-C4OMKXhEeSYtblXNI2twA" name="buildPhase" returnType="_OfdZkqXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_ALkZAKXiEeSYtblXNI2twA" name="incomePhase" returnType="_OfdZkqXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_B47SsKXiEeSYtblXNI2twA" name="paymentPhase" returnType="_OfdZkqXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_tiQCkKXjEeSYtblXNI2twA" name="buildRoad" returnType="_OfdZkqXbEeS9wNeiJfkF8w">
+        <parameters xmi:id="_tiQCkaXjEeSYtblXNI2twA" name="u" type="_qITS8KXdEeSYtblXNI2twA"/>
+      </operations>
+      <operations xmi:id="_z5obYKXjEeSYtblXNI2twA" name="upgradeVillage" returnType="_OfdZkqXbEeS9wNeiJfkF8w">
+        <parameters xmi:id="_z5obYaXjEeSYtblXNI2twA" name="v" type="_7wfjkKXbEeSYtblXNI2twA"/>
+      </operations>
+      <operations xmi:id="_3_KtYKXjEeSYtblXNI2twA" name="upgradeUnit" returnType="_OfdZkqXbEeS9wNeiJfkF8w">
+        <parameters xmi:id="_3_KtYaXjEeSYtblXNI2twA" name="u" type="_qITS8KXdEeSYtblXNI2twA"/>
+      </operations>
+      <operations xmi:id="_7UHP8KXjEeSYtblXNI2twA" name="takeOver" returnType="_OfdZkqXbEeS9wNeiJfkF8w">
+        <parameters xmi:id="_7UHP8aXjEeSYtblXNI2twA" name="h" type="_YQnVIKXcEeSYtblXNI2twA"/>
+      </operations>
+      <operations xmi:id="_AbW2kKXkEeSYtblXNI2twA" name="moveUnit" returnType="_OfdZlKXbEeS9wNeiJfkF8w">
+        <parameters xmi:id="_AbW2kaXkEeSYtblXNI2twA" name="u" type="_qITS8KXdEeSYtblXNI2twA"/>
+        <parameters xmi:id="_AbW2kqXkEeSYtblXNI2twA" name="h" type="_YQnVIKXcEeSYtblXNI2twA"/>
+      </operations>
+      <operations xmi:id="_OEtoMKXkEeSYtblXNI2twA" name="getPath" returnType="_u_iVYKXiEeSYtblXNI2twA">
+        <parameters xmi:id="_OEtoMaXkEeSYtblXNI2twA" name="h1" type="_YQnVIKXcEeSYtblXNI2twA"/>
+        <parameters xmi:id="_OEtoMqXkEeSYtblXNI2twA" name="h2" type="_YQnVIKXcEeSYtblXNI2twA"/>
+      </operations>
+      <associationEnds xmi:id="_YdVGAKXdEeSYtblXNI2twA" name="myPlayer" lowerBound="1" upperBound="4" referenceType="Aggregation" assoc="_YdVGAaXdEeSYtblXNI2twA"/>
+      <associationEnds xmi:id="_at-6AKXdEeSYtblXNI2twA" name="myMap" lowerBound="1" referenceType="Aggregation" assoc="_at_hEaXdEeSYtblXNI2twA"/>
+      <attributes xmi:id="_q0CCcKXbEeSYtblXNI2twA" name="gameID" type="_OfdZlaXbEeS9wNeiJfkF8w"/>
+      <attributes xmi:id="_s7FOgKXbEeSYtblXNI2twA" name="turn" type="_OfdZlaXbEeS9wNeiJfkF8w"/>
+    </classes>
+    <classes xsi:type="ram:Class" xmi:id="_vs4AsKXbEeSYtblXNI2twA" name="Player">
+      <operations xmi:id="_SJsn8KXhEeSYtblXNI2twA" name="create" returnType="_vs4AsKXbEeSYtblXNI2twA" operationType="Constructor"/>
+      <operations xmi:id="_562B0aXhEeSYtblXNI2twA" name="getUnits" returnType="_562B0KXhEeSYtblXNI2twA"/>
+      <operations xmi:id="_lr9RMaXiEeSYtblXNI2twA" name="getVillages" returnType="_lr9RMKXiEeSYtblXNI2twA"/>
+      <associationEnds xmi:id="_VR3PkKXdEeSYtblXNI2twA" name="myVillage" lowerBound="1" upperBound="-1" referenceType="Aggregation" assoc="_VR32oaXdEeSYtblXNI2twA"/>
+      <associationEnds xmi:id="_YdUe8KXdEeSYtblXNI2twA" name="myEngine" lowerBound="1" navigable="false" assoc="_YdVGAaXdEeSYtblXNI2twA"/>
+      <attributes xmi:id="_z8JdgKXbEeSYtblXNI2twA" name="name" type="_OfdZl6XbEeS9wNeiJfkF8w"/>
+      <attributes xmi:id="_1bg-gKXbEeSYtblXNI2twA" name="ID" type="_OfdZlaXbEeS9wNeiJfkF8w"/>
+      <attributes xmi:id="_32sngKXbEeSYtblXNI2twA" name="winRatio" type="_OfdZmKXbEeS9wNeiJfkF8w"/>
+      <attributes xmi:id="_5ctjEKXbEeSYtblXNI2twA" name="gamesPlayed" type="_OfdZlaXbEeS9wNeiJfkF8w"/>
+    </classes>
+    <classes xsi:type="ram:Class" xmi:id="_7wfjkKXbEeSYtblXNI2twA" name="Village">
+      <operations xmi:id="_Y0nn0KXhEeSYtblXNI2twA" name="create" returnType="_7wfjkKXbEeSYtblXNI2twA" operationType="Constructor"/>
+      <operations xmi:id="_Sa5awKXjEeSYtblXNI2twA" name="destroy" returnType="_OfdZkqXbEeS9wNeiJfkF8w" operationType="Destructor"/>
+      <operations xmi:id="_u_iVYaXiEeSYtblXNI2twA" name="getHexs" returnType="_u_iVYKXiEeSYtblXNI2twA"/>
+      <operations xmi:id="_FF0QAKXjEeSYtblXNI2twA" name="setGold" returnType="_OfdZkqXbEeS9wNeiJfkF8w">
+        <parameters xmi:id="_FF0QAaXjEeSYtblXNI2twA" name="g" type="_OfdZlaXbEeS9wNeiJfkF8w"/>
+      </operations>
+      <operations xmi:id="_KvU2MKXjEeSYtblXNI2twA" name="getUnits" returnType="_562B0KXhEeSYtblXNI2twA"/>
+      <operations xmi:id="_heeHoKXjEeSYtblXNI2twA" name="getWood" returnType="_OfdZlaXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_nrOdcKXmEeSYtblXNI2twA" name="setWood" returnType="_OfdZkqXbEeS9wNeiJfkF8w">
+        <parameters xmi:id="_qvVusKXmEeSYtblXNI2twA" name="w" type="_OfdZlaXbEeS9wNeiJfkF8w"/>
+      </operations>
+      <operations xmi:id="_tZXE8KXmEeSYtblXNI2twA" name="setType" returnType="_OfdZkqXbEeS9wNeiJfkF8w">
+        <parameters xmi:id="_tZXE8aXmEeSYtblXNI2twA" name="t" type="_OfdZl6XbEeS9wNeiJfkF8w"/>
+      </operations>
+      <operations xmi:id="_CGrBgKXnEeSYtblXNI2twA" name="getGold" returnType="_OfdZlaXbEeS9wNeiJfkF8w"/>
+      <associationEnds xmi:id="_GV18MKXdEeSYtblXNI2twA" name="myHex" lowerBound="3" upperBound="-1" referenceType="Aggregation" assoc="_GV2jQaXdEeSYtblXNI2twA"/>
+      <associationEnds xmi:id="_VR32oKXdEeSYtblXNI2twA" name="myPlayer" lowerBound="1" navigable="false" assoc="_VR32oaXdEeSYtblXNI2twA"/>
+      <associationEnds xmi:id="_77F_IKXdEeSYtblXNI2twA" name="myUnit" lowerBound="1" referenceType="Aggregation" assoc="_77HNQaXdEeSYtblXNI2twA"/>
+      <attributes xmi:id="_-S85QKXbEeSYtblXNI2twA" name="gold" type="_OfdZlaXbEeS9wNeiJfkF8w"/>
+      <attributes xmi:id="__oVX0KXbEeSYtblXNI2twA" name="wood" type="_OfdZlaXbEeS9wNeiJfkF8w"/>
+      <attributes xmi:id="_RoNdwKXcEeSYtblXNI2twA" name="type" type="_LUwisKXcEeSYtblXNI2twA"/>
+      <attributes xmi:id="_joKQoKXmEeSYtblXNI2twA" name="VillageType" type="_OfdZl6XbEeS9wNeiJfkF8w"/>
+    </classes>
+    <classes xsi:type="ram:Class" xmi:id="_T5zs8KXcEeSYtblXNI2twA" name="Map">
+      <associationEnds xmi:id="_at_hEKXdEeSYtblXNI2twA" name="myEngine" lowerBound="1" navigable="false" assoc="_at_hEaXdEeSYtblXNI2twA"/>
+      <associationEnds xmi:id="_c6fN0KXdEeSYtblXNI2twA" name="myHex" lowerBound="300" upperBound="-1" referenceType="Composition" assoc="_c6f04KXdEeSYtblXNI2twA"/>
+      <attributes xmi:id="_WyLBMKXcEeSYtblXNI2twA" name="ID" type="_OfdZlaXbEeS9wNeiJfkF8w"/>
+    </classes>
+    <classes xsi:type="ram:Class" xmi:id="_YQnVIKXcEeSYtblXNI2twA" name="Hex">
+      <operations xmi:id="_VJvcEKXiEeSYtblXNI2twA" name="buildMeadow" returnType="_OfdZkqXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_ZO-MEKXiEeSYtblXNI2twA" name="buildRoad" returnType="_OfdZkqXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_bRoAUKXiEeSYtblXNI2twA" name="replaceTomb" returnType="_OfdZkqXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_ff1GIKXiEeSYtblXNI2twA" name="putTomb" returnType="_OfdZkqXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_hQDGkKXiEeSYtblXNI2twA" name="putTree" returnType="_OfdZkqXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_-PreoKXiEeSYtblXNI2twA" name="getIncomeType" returnType="_2qOJIKXiEeSYtblXNI2twA"/>
+      <operations xmi:id="_MC0-EKXmEeSYtblXNI2twA" name="isRoad" returnType="_OfdZlKXbEeS9wNeiJfkF8w"/>
+      <associationEnds xmi:id="_GV2jQKXdEeSYtblXNI2twA" name="owner" lowerBound="1" navigable="false" assoc="_GV2jQaXdEeSYtblXNI2twA"/>
+      <associationEnds xmi:id="_c6fN0aXdEeSYtblXNI2twA" name="myMap" lowerBound="1" navigable="false" assoc="_c6f04KXdEeSYtblXNI2twA"/>
+      <associationEnds xmi:id="_jTZ3sKXdEeSYtblXNI2twA" name="myWatchTower" referenceType="Aggregation" assoc="_jTaewaXdEeSYtblXNI2twA"/>
+      <attributes xmi:id="_18S64KXcEeSYtblXNI2twA" name="isOccupied" type="_OfdZlKXbEeS9wNeiJfkF8w"/>
+      <attributes xmi:id="_33ZVoKXcEeSYtblXNI2twA" name="hasTree" type="_OfdZlKXbEeS9wNeiJfkF8w"/>
+      <attributes xmi:id="_5czNMKXcEeSYtblXNI2twA" name="hasRoad" type="_OfdZlKXbEeS9wNeiJfkF8w"/>
+      <attributes xmi:id="_8gr08KXcEeSYtblXNI2twA" name="hasTombstone" type="_OfdZlKXbEeS9wNeiJfkF8w"/>
+    </classes>
+    <classes xsi:type="ram:Class" xmi:id="_gYtBIKXdEeSYtblXNI2twA" name="WatchTower">
+      <associationEnds xmi:id="_jTaewKXdEeSYtblXNI2twA" name="myHex" lowerBound="1" navigable="false" assoc="_jTaewaXdEeSYtblXNI2twA"/>
+    </classes>
+    <classes xsi:type="ram:Class" xmi:id="_qITS8KXdEeSYtblXNI2twA" name="Unit">
+      <operations xmi:id="_TOZUQKXjEeSYtblXNI2twA" name="destroy" returnType="_OfdZkqXbEeS9wNeiJfkF8w" operationType="Destructor"/>
+      <operations xmi:id="_OT93EKXiEeSYtblXNI2twA" name="update" returnType="_OfdZkqXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_R0GV8KXiEeSYtblXNI2twA" name="getLocation" returnType="_YQnVIKXcEeSYtblXNI2twA"/>
+      <operations xmi:id="_PrFlkKXjEeSYtblXNI2twA" name="getCost" returnType="_OfdZlaXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_Y-5L4KXmEeSYtblXNI2twA" name="setBuidlingRoad" returnType="_OfdZkqXbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_bbHWsKXmEeSYtblXNI2twA" name="getType" returnType="_OfdZl6XbEeS9wNeiJfkF8w"/>
+      <operations xmi:id="_8IaTUKXmEeSYtblXNI2twA" name="getVillage" returnType="_7wfjkKXbEeSYtblXNI2twA"/>
+      <operations xmi:id="_OVCb0KXnEeSYtblXNI2twA" name="setType" returnType="_OfdZkqXbEeS9wNeiJfkF8w">
+        <parameters xmi:id="_OVCb0aXnEeSYtblXNI2twA" name="t" type="_OfdZl6XbEeS9wNeiJfkF8w"/>
+      </operations>
+      <associationEnds xmi:id="_77HNQKXdEeSYtblXNI2twA" name="myVillage" lowerBound="1" assoc="_77HNQaXdEeSYtblXNI2twA"/>
+      <attributes xmi:id="_Nqj4QKXjEeSYtblXNI2twA" name="cost" type="_OfdZlaXbEeS9wNeiJfkF8w"/>
+    </classes>
+    <classes xsi:type="ram:Class" xmi:id="_tjBGUKXdEeSYtblXNI2twA" name="Infantry" superTypes="_qITS8KXdEeSYtblXNI2twA"/>
+    <classes xsi:type="ram:Class" xmi:id="_1foiIKXeEeSYtblXNI2twA" name="Peasant" superTypes="_qITS8KXdEeSYtblXNI2twA">
+      <attributes xmi:id="_6bPggKXeEeSYtblXNI2twA" name="buildingMeadow" type="_OfdZlKXbEeS9wNeiJfkF8w"/>
+      <attributes xmi:id="_-p88oKXeEeSYtblXNI2twA" name="buildingRoad" type="_OfdZlKXbEeS9wNeiJfkF8w"/>
+    </classes>
+    <classes xsi:type="ram:Class" xmi:id="_EfM4wKXfEeSYtblXNI2twA" name="Soldier" superTypes="_qITS8KXdEeSYtblXNI2twA"/>
+    <classes xsi:type="ram:Class" xmi:id="_IfHD4KXfEeSYtblXNI2twA" name="Knight" superTypes="_qITS8KXdEeSYtblXNI2twA"/>
+    <associations xmi:id="_GV2jQaXdEeSYtblXNI2twA" name="Village_Hex" ends="_GV18MKXdEeSYtblXNI2twA _GV2jQKXdEeSYtblXNI2twA"/>
+    <associations xmi:id="_VR32oaXdEeSYtblXNI2twA" name="Player_Village" ends="_VR3PkKXdEeSYtblXNI2twA _VR32oKXdEeSYtblXNI2twA"/>
+    <associations xmi:id="_YdVGAaXdEeSYtblXNI2twA" name="Player_Engine" ends="_YdUe8KXdEeSYtblXNI2twA _YdVGAKXdEeSYtblXNI2twA"/>
+    <associations xmi:id="_at_hEaXdEeSYtblXNI2twA" name="Engine_Map" ends="_at-6AKXdEeSYtblXNI2twA _at_hEKXdEeSYtblXNI2twA"/>
+    <associations xmi:id="_c6f04KXdEeSYtblXNI2twA" name="Map_Hex" ends="_c6fN0KXdEeSYtblXNI2twA _c6fN0aXdEeSYtblXNI2twA"/>
+    <associations xmi:id="_jTaewaXdEeSYtblXNI2twA" name="Hex_WatchTower" ends="_jTZ3sKXdEeSYtblXNI2twA _jTaewKXdEeSYtblXNI2twA"/>
+    <associations xmi:id="_77HNQaXdEeSYtblXNI2twA" name="Village_Unit" ends="_77F_IKXdEeSYtblXNI2twA _77HNQKXdEeSYtblXNI2twA"/>
+    <types xsi:type="ram:RVoid" xmi:id="_OfdZkqXbEeS9wNeiJfkF8w"/>
+    <types xsi:type="ram:RAny" xmi:id="_OfdZk6XbEeS9wNeiJfkF8w"/>
+    <types xsi:type="ram:RBoolean" xmi:id="_OfdZlKXbEeS9wNeiJfkF8w"/>
+    <types xsi:type="ram:RInt" xmi:id="_OfdZlaXbEeS9wNeiJfkF8w"/>
+    <types xsi:type="ram:RChar" xmi:id="_OfdZlqXbEeS9wNeiJfkF8w"/>
+    <types xsi:type="ram:RString" xmi:id="_OfdZl6XbEeS9wNeiJfkF8w"/>
+    <types xsi:type="ram:RDouble" xmi:id="_OfdZmKXbEeS9wNeiJfkF8w"/>
+    <types xsi:type="ram:RFloat" xmi:id="_OfdZmaXbEeS9wNeiJfkF8w"/>
+    <types xsi:type="ram:RLong" xmi:id="_OfdZmqXbEeS9wNeiJfkF8w"/>
+    <types xsi:type="ram:REnum" xmi:id="_LUwisKXcEeSYtblXNI2twA" name="TerrainType"/>
+    <types xsi:type="ram:RArray" xmi:id="_iDnuAKXhEeSYtblXNI2twA" type="_vs4AsKXbEeSYtblXNI2twA"/>
+    <types xsi:type="ram:RArray" xmi:id="_562B0KXhEeSYtblXNI2twA" type="_qITS8KXdEeSYtblXNI2twA"/>
+    <types xsi:type="ram:RArray" xmi:id="_lr9RMKXiEeSYtblXNI2twA" type="_7wfjkKXbEeSYtblXNI2twA"/>
+    <types xsi:type="ram:RArray" xmi:id="_u_iVYKXiEeSYtblXNI2twA" type="_YQnVIKXcEeSYtblXNI2twA"/>
+    <types xsi:type="ram:REnum" xmi:id="_2qOJIKXiEeSYtblXNI2twA" name="IncomeType"/>
+  </structuralView>
+  <layout xmi:id="_OfensKXbEeS9wNeiJfkF8w">
+    <containers xmi:id="_OfensaXbEeS9wNeiJfkF8w" key="_OfdZkaXbEeS9wNeiJfkF8w">
+      <value xmi:id="_mTeoYKXbEeSYtblXNI2twA" key="_mTX6sKXbEeSYtblXNI2twA">
+        <value xmi:id="_mTeoYaXbEeSYtblXNI2twA" x="-207.47398" y="-171.9915"/>
+      </value>
+      <value xmi:id="_vs7EAKXbEeSYtblXNI2twA" key="_vs4AsKXbEeSYtblXNI2twA">
+        <value xmi:id="_vs7rEKXbEeSYtblXNI2twA" x="346.73407" y="-46.26123"/>
+      </value>
+      <value xmi:id="_7wgxsKXbEeSYtblXNI2twA" key="_7wfjkKXbEeSYtblXNI2twA">
+        <value xmi:id="_7wgxsaXbEeSYtblXNI2twA" x="346.9722" y="453.9836"/>
+      </value>
+      <value xmi:id="_LUyX4KXcEeSYtblXNI2twA" key="_LUwisKXcEeSYtblXNI2twA">
+        <value xmi:id="_LUyX4aXcEeSYtblXNI2twA" x="611.7251" y="271.7414"/>
+      </value>
+      <value xmi:id="_T50UAKXcEeSYtblXNI2twA" key="_T5zs8KXcEeSYtblXNI2twA">
+        <value xmi:id="_T50UAaXcEeSYtblXNI2twA" x="-139.41081" y="391.34586"/>
+      </value>
+      <value xmi:id="_YQojQKXcEeSYtblXNI2twA" key="_YQnVIKXcEeSYtblXNI2twA">
+        <value xmi:id="_YQojQaXcEeSYtblXNI2twA" x="-180.41884" y="578.84863"/>
+      </value>
+      <value xmi:id="_gYuPQKXdEeSYtblXNI2twA" key="_gYtBIKXdEeSYtblXNI2twA">
+        <value xmi:id="_gYuPQaXdEeSYtblXNI2twA" x="-441.5396" y="619.02814"/>
+      </value>
+      <value xmi:id="_qIVvMKXdEeSYtblXNI2twA" key="_qITS8KXdEeSYtblXNI2twA">
+        <value xmi:id="_qIVvMaXdEeSYtblXNI2twA" x="286.49646" y="954.66034"/>
+      </value>
+      <value xmi:id="_tjCUcKXdEeSYtblXNI2twA" key="_tjBGUKXdEeSYtblXNI2twA">
+        <value xmi:id="_tjCUcaXdEeSYtblXNI2twA" x="69.5032" y="1312.6637"/>
+      </value>
+      <value xmi:id="_1fqXUKXeEeSYtblXNI2twA" key="_1foiIKXeEeSYtblXNI2twA">
+        <value xmi:id="_1fqXUaXeEeSYtblXNI2twA" x="-253.17934" y="1300.5636"/>
+      </value>
+      <value xmi:id="_EfNf0KXfEeSYtblXNI2twA" key="_EfM4wKXfEeSYtblXNI2twA">
+        <value xmi:id="_EfOG4KXfEeSYtblXNI2twA" x="351.8402" y="1299.5582"/>
+      </value>
+      <value xmi:id="_IfHq8KXfEeSYtblXNI2twA" key="_IfHD4KXfEeSYtblXNI2twA">
+        <value xmi:id="_IfHq8aXfEeSYtblXNI2twA" x="641.8527" y="1348.0653"/>
+      </value>
+      <value xmi:id="_2qP-UKXiEeSYtblXNI2twA" key="_2qOJIKXiEeSYtblXNI2twA">
+        <value xmi:id="_2qP-UaXiEeSYtblXNI2twA" x="801.44604" y="274.33392"/>
+      </value>
+    </containers>
+  </layout>
+</ram:Aspect>
