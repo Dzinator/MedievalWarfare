@@ -154,8 +154,7 @@ class Engine:
         pass
 
     def run(self):
-        while True:
-            self.Gui.draw()
+        self.Gui.run()
 
 def inCircle(p1,p2,r):
     return math.sqrt(pow(p1[0]-p2[0],2)+pow(p1[1]-p2[1],2))<r

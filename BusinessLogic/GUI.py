@@ -7,8 +7,162 @@ from OpenGL.GLU import *
 from ctypes import util
 from OpenGL.arrays import ArrayDatatype as ADT
 
+
+
+class Text:
+    a = 0.125
+    pos = {"0":(0,5),"1":(1,5),"2":(2,5),"3":(3,5),"4":(4,5),"5":(5,5),"6":(6,5),"7":(7,5),
+           "8":(0,4),"9":(1,4),
+           "a":(1,3),"b":(2,3),"c":(3,3),"d":(4,3),"e":(5,3),"f":(6,3),"g":(7,3),
+           "h":(0,2),"i":(1,2),"j":(2,2),"k":(3,2),"l":(4,2),"m":(5,2),"n":(6,2),"o":(7,2),
+           "p":(0,1),"q":(1,1),"r":(2,1),"s":(3,1),"t":(4,1),"u":(5,1),"v":(6,1),"w":(7,1),
+           "x":(0,0),"y":(1,0),"z":(2,0), "!":(1,7)}
+    image = None
+    def __init__(self,x,y,size,text):
+        self.color = (0,0,0,1)
+        x -=len(text)*size
+        y += size/2
+        self.centre = [x,y]
+        centres=[]
+        verts=[]
+        for i,c in enumerate(text):
+            if c!=" ":
+                centres+=[x+size*i*2,y]*4
+                p = self.pos[c]
+                verts+=[[self.a*p[0],.065+self.a*p[1]],
+                        [.045+self.a*p[0],.065+self.a*p[1]],
+                        [.045+self.a*p[0],.125+self.a*p[1]],
+                        [self.a*p[0],.125+self.a*p[1]]]
+
+        self.text =text
+        self.size = size
+        
+        
+        self.length = len(text)
+
+        self.texVerts = glvbo.VBO(np.array(verts , dtype=np.float32))
+        self.offsets = glvbo.VBO(np.array(centres, dtype=np.float32))
+
+        self.vertices = glvbo.VBO(np.array([[-size,-size],[size,-size],[size,size],[-size,size]]*len(text) , dtype=np.float32))
+        self.Colours = glvbo.VBO(np.array(self.color*4*len(text) , dtype=np.float32))
+
+        off_data = np.array(centres, dtype=np.float32)
+        self.offsetbuffer = g._types.GLuint(0)
+        glGenBuffers(1, self.offsetbuffer)
+        glBindBuffer(GL_ARRAY_BUFFER, self.offsetbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(off_data), ADT.voidDataPointer(off_data), GL_STATIC_DRAW)
+
+        self.texVerts = np.array(verts, dtype=np.float32)
+        self.texbuffer = g._types.GLuint(0)
+        glGenBuffers(1, self.texbuffer)
+        glBindBuffer(GL_ARRAY_BUFFER, self.texbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texVerts ), ADT.voidDataPointer(self.texVerts ), GL_STATIC_DRAW)
+        
+        g_tex_buffer_data = np.array([[-size,-size],[size,-size],[size,size],[-size,size]]*len(text)  , dtype=np.float32)
+        self.vertexbuffer = g._types.GLuint(0)
+        glGenBuffers(1, self.vertexbuffer)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vertexbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_tex_buffer_data), ADT.voidDataPointer(g_tex_buffer_data), GL_STATIC_DRAW)
+
+        self.texoffVerts = np.array([0,0]*len(text) , dtype=np.float32)
+        self.texoffbuffer = g._types.GLuint(0)
+        glGenBuffers(1, self.texoffbuffer)
+        glBindBuffer(GL_ARRAY_BUFFER, self.texoffbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texoffVerts ), ADT.voidDataPointer(self.texoffVerts ), GL_STATIC_DRAW)
+
+        colour_data = np.array(self.color*4*len(text) , dtype=np.float32)
+        self.colorbuffer = g._types.GLuint(0)
+        glGenBuffers(1, self.colorbuffer)
+        glBindBuffer(GL_ARRAY_BUFFER, self.colorbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(colour_data), ADT.voidDataPointer(colour_data), GL_STATIC_DRAW)
+        
+    def update(self):
+        self.draw()
+
+    def draw(self):
+        glBindTexture(GL_TEXTURE_2D, self.image)
+        glEnableVertexAttribArray(0)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vertexbuffer)
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, None)
+        glEnableVertexAttribArray(1)
+        glBindBuffer(GL_ARRAY_BUFFER, self.colorbuffer)
+        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, None)
+        glEnableVertexAttribArray(2)
+        glBindBuffer(GL_ARRAY_BUFFER, self.offsetbuffer)
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, None)
+        glEnableVertexAttribArray(3)
+        glBindBuffer(GL_ARRAY_BUFFER, self.texbuffer)
+        glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 0, None)
+        glEnableVertexAttribArray(4)
+        glBindBuffer(GL_ARRAY_BUFFER, self.texoffbuffer)
+        glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, 0, None)
+
+        glDrawArrays(GL_QUADS, 0, 4*self.length)
+
+        glDisableVertexAttribArray(0)
+        glDisableVertexAttribArray(1)
+        glDisableVertexAttribArray(2)
+        glDisableVertexAttribArray(3)
+        glDisableVertexAttribArray(4)
+
+class Button:
+    def __init__(self, x, y, w, h, f, text):
+        self.clickFunction = f
+        self.centre = [x, y]
+        self.h = h
+        self.w = w
+
+       # self.image = bindTexture(image)
+
+        self.texVerts = np.array([.7,.7,.7,.999]*4 , dtype=np.float32)
+        self.texbuffer = g._types.GLuint(0)
+        glGenBuffers(1, self.texbuffer)
+        glBindBuffer(GL_ARRAY_BUFFER, self.texbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texVerts ), ADT.voidDataPointer(self.texVerts ), GL_STATIC_DRAW)
+        
+        g_tex_buffer_data = np.array([[-w+x,-h+y],[w+x,-h+y],[w+x,h+y],[-w+x,h+y]] , dtype=np.float32)
+        self.vertexbuffer = g._types.GLuint(0)
+        glGenBuffers(1, self.vertexbuffer)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vertexbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_tex_buffer_data), ADT.voidDataPointer(g_tex_buffer_data), GL_STATIC_DRAW)
+
+        self.texoffVerts = np.array([0,0,0,0]*4 , dtype=np.float32)
+        self.texoffbuffer = g._types.GLuint(0)
+        glGenBuffers(1, self.texoffbuffer)
+        glBindBuffer(GL_ARRAY_BUFFER, self.texoffbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texoffVerts ), ADT.voidDataPointer(self.texoffVerts ), GL_STATIC_DRAW)
+        self.text = Text(x,y,0.01,text)
+
+    def inSquare(self, p):
+        return (self.centre[0]+self.w>p[0]>self.centre[0]-self.w and self.centre[1]+self.h>p[1]>self.centre[1]-self.h)
+
+    def click(self, p):
+        if self.inSquare(p):
+            self.clickFunction()
+
+    def draw(self):
+        
+        #glBindTexture(GL_TEXTURE_2D,self.image)
+        glEnableVertexAttribArray(0)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vertexbuffer)
+        glVertexAttribPointer(0, 2, GL_FLOAT, False, 0, None)
+        glEnableVertexAttribArray(1)
+        glBindBuffer(GL_ARRAY_BUFFER, self.texbuffer)
+        glVertexAttribPointer(1, 4, GL_FLOAT, False, 0, None)
+        glEnableVertexAttribArray(5)
+        glBindBuffer(GL_ARRAY_BUFFER, self.texoffbuffer)
+        glVertexAttribPointer(5, 4, GL_FLOAT, False, 0, None)
+
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4)
+
+        glDisableVertexAttribArray(0)
+        glDisableVertexAttribArray(1)
+        glDisableVertexAttribArray(5)
+        self.text.draw()
+
 class Gui:
     def __init__(self, engine, width, height):
+        
         self.height = height
         self.width = width
         self.engine = engine
@@ -17,8 +171,6 @@ class Gui:
         self.init()
         self.zoom = 1
         self.trans = [0,0]
-        self.dir = [0,0,0,0]
-        self.move = [0,0,0]
         self.shader = self.shaders()
 
         self.mainClock = pygame.time.Clock()
@@ -33,6 +185,12 @@ class Gui:
 
         self.mapTex = self.bindTexture("texture2.png")
 
+        Text.image = self.bindTexture("ExportedFont_Alpha.png")
+
+
+        self.show = False
+        self.buttons = [Button(-1.6+i*.3,-.9,.1,.03, lambda: setattr(self, 'show', not self.show), "button"+str(i+1)) for i in range(3)]
+        self.text = Text(0,0,0.03,"you did it!")
         #grid
         self.gridvertexbuffer = g._types.GLuint(0);
         glGenBuffers(1, self.gridvertexbuffer)
@@ -245,69 +403,82 @@ class Gui:
         glDisableVertexAttribArray(3)
         glDisableVertexAttribArray(4)
 
-    def draw(self):
-        events = False
-        for event in pygame.event.get():
-            events = True 
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == KEYUP and event.key == K_ESCAPE:
-                pygame.quit()
-                #sys.exit()
-            if event.type == KEYUP and event.key == ord('z'):
-                self.zoom = 2 if self.zoom == 1 else 1
-                loc3 = glGetUniformLocation(self.shader,'zoom')
-                glUniform1f(loc3,self.zoom)
-                click = convertPoint(pygame.mouse.get_pos(),self) if self.zoom == 2 else [0,0]
-                loc2 = glGetUniformLocation(self.shader,'engine')
-                glUniform2f(loc2,-click[0],-click[1])
-            if event.type == KEYDOWN:
-                {ord('a') : lambda: setattr(self, 'trans', [self.trans[0]-.1,self.trans[1]]),
-                    ord('d') : lambda: setattr(self, 'trans', [self.trans[0]+.1,self.trans[1]]),
-                    ord('w') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]+.1]),
-                    ord('s') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]-.1])
-                    }.get(event.key, lambda: True)()
-            if event.type == KEYUP:
-                {ord('a') : lambda: False
-                }.get(event.key, lambda: True)() 
-            if event.type == MOUSEBUTTONDOWN:
-                if event.button == 4 or event.button == 5:
-                    self.zoom = self.zoom/.90 if event.button == 4 else self.zoom*.90
+    def run(self):
+        while self.running:
+            events = False
+            for event in pygame.event.get():
+                events = True 
+                if event.type == QUIT:
+                    pygame.quit()
+                    self.running = False
+                if event.type == KEYUP and event.key == K_ESCAPE:
+                    pygame.quit()
+                    self.running = False
+                if event.type == KEYUP and event.key == ord('z'):
+                    self.zoom = 2 if self.zoom == 1 else 1
                     loc3 = glGetUniformLocation(self.shader,'zoom')
                     glUniform1f(loc3,self.zoom)
-                    click = self.convertPoint(pygame.mouse.get_pos()) 
+                    click = convertPoint(pygame.mouse.get_pos(),self) if self.zoom == 2 else [0,0]
                     loc2 = glGetUniformLocation(self.shader,'engine')
                     glUniform2f(loc2,-click[0],-click[1])
-                if event.button == 1:
-                    self.mouseDown = True
+                if event.type == KEYDOWN:
+                    {ord('a') : lambda: setattr(self, 'trans', [self.trans[0]-.1,self.trans[1]]),
+                        ord('d') : lambda: setattr(self, 'trans', [self.trans[0]+.1,self.trans[1]]),
+                        ord('w') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]+.1]),
+                        ord('s') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]-.1])
+                        }.get(event.key, lambda: True)()
+                if event.type == KEYUP:
+                    {ord('a') : lambda: False
+                    }.get(event.key, lambda: True)() 
+                if event.type == MOUSEBUTTONDOWN:
+                    if event.button == 4 or event.button == 5:
+                        self.zoom = self.zoom/.90 if event.button == 4 else self.zoom*.90
+                        loc3 = glGetUniformLocation(self.shader,'zoom')
+                        glUniform1f(loc3,self.zoom)
+                        click = self.convertPoint(pygame.mouse.get_pos()) 
+                        loc2 = glGetUniformLocation(self.shader,'engine')
+                        glUniform2f(loc2,-click[0],-click[1])
+                    if event.button == 1:
+                        self.mouseDown = True
                     
-                if event.button == 3:
-                    pass
+                    if event.button == 3:
+                        pass
 
-            if event.type == MOUSEBUTTONUP:
-                if event.button == 1:
-                    self.mouseDown = False
-            if event.type == MOUSEMOTION:
-                if self.mouseDown:
-                    rel = event.rel
-                    self.trans[0] += rel[0]*.003/self.zoom
-                    self.trans[1] -= rel[1]*.003/self.zoom
-        if self.running:
-            loc2 = glGetUniformLocation(self.shader,'engine')
-            glUniform2f(loc2,self.trans[0],self.trans[1])
-            glClear(GL_COLOR_BUFFER_BIT)
+                if event.type == MOUSEBUTTONUP:
+                    if event.button == 1:
+                        self.mouseDown = False
+                        for b in self.buttons:
+                            b.click(self.convertStaticPoint(pygame.mouse.get_pos()))
+                if event.type == MOUSEMOTION:
+                    if self.mouseDown:
+                        rel = event.rel
+                        self.trans[0] += rel[0]*.003/self.zoom
+                        self.trans[1] -= rel[1]*.003/self.zoom
+            if self.running:
+                loc2 = glGetUniformLocation(self.shader,'engine')
+                loc3 = glGetUniformLocation(self.shader,'zoom')
+                glUniform2f(loc2,self.trans[0],self.trans[1])
+                glUniform1f(loc3,self.zoom)
+                glClear(GL_COLOR_BUFFER_BIT)
+            
+                self.drawGrid()
 
-            self.drawGrid()
-
-            #  button.draw()
-
-            self.mainClock.tick(60)
-            pygame.display.flip()
+                glUniform2f(loc2,0,0)
+            
+                glUniform1f(loc3,1)
+                for b in self.buttons:
+                    b.draw()
+                if self.show:
+                    self.text.draw()
+                self.mainClock.tick(60)
+                pygame.display.flip()
 
 
     def convertPoint(self, p):
-        return ((p[0]/self.height*2 -(self.width/self.height)-(self.trans[0]+self.move[0]))/self.zoom, (-(p[1]/self.height)*2+1-(self.trans[1]+self.move[1]))/self.zoom)
+        return ((p[0]/self.height*2 -(self.width/self.height)-(self.trans[0]))/self.zoom, (-(p[1]/self.height)*2+1-(self.trans[1]))/self.zoom)
+
+    def convertStaticPoint(self, p):
+        return ((p[0]/self.height*2 -(self.width/self.height)), (-(p[1]/self.height)*2+1))
 
     def bindTexture(self, texture, repeat = False):
         texID = 0
@@ -325,3 +496,4 @@ class Gui:
         except:
             print ("can't open the texture: %s"%(texture))
         return texID
+
