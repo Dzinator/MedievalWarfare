@@ -1,6 +1,17 @@
 from GUI import Gui
 import math, random
 
+class Player:
+    def __init__(self, Id, name, number):
+        self.Id = Id
+        self.name = name
+        self.villages = []
+        self.n = number
+
+    def addVillage(self,h):
+        self.villages.append(Village(h,self,[]))
+        h.village = self.villages[-1]
+
 class Village:
     def __init__(self, h, p, t):
         self.VillageType = 0
@@ -44,6 +55,7 @@ class Hex:
         f = lambda q: 1-min((2**(q-1)-1)/1000, 1)
         self.water = True if random.random()>f(s) else False
         self.hasTree = True if random.random()<.2 and not self.water else False 
+        self.meadow = False
         self.neighbours = []
         self.owner = random.randint(1,4)
 
@@ -57,7 +69,8 @@ class Hex:
         pass
 
     def putTree(self):
-        pass
+        self.hasTree = True
+        self.meadow = False
 
     def putRoad(self):
         pass
@@ -82,7 +95,8 @@ class Grid:
         self.sp = .09
         self.d = self.sp/1.05
         ratio = width/height
-        self.hexes = [Hex(self.sp*1.5*(x*2+(y%2)+1/3)-ratio,y*self.sp*math.sin(math.pi/3)-1,self.d, math.sqrt(abs((x-7)*1.5)**2+abs((y-19)/1.7)**2), x*100+y)  for y in range(40) for x in range(15)]
+        self.hexes = [Hex(self.sp*1.5*(x*2+(y%2)+1/3)-30*self.sp,y*self.sp*math.sin(math.pi/3)-20*self.sp,self.d, math.sqrt(abs((x-9)*1.5)**2+abs((y-22)/1.7)**2), x*100+y)  for y in range(45) for x in range(20)]
+        self.usable = [h for h in self.hexes if not h.water]
 
         for h in self.hexes:
             h.neighbours = [g for g in self.hexes if h != g and inCircle(h.centre,g.centre, self.sp*2+.02) and not g.water and not h.water]
@@ -127,6 +141,10 @@ class Engine:
         self.roundsPlayed = 0
         self.players = []
         self.grid = Grid(1, 1600, 900)
+
+        self.players.append(Player(0, "name", 1))
+        self.players[0].addVillage(self.grid.hexes[250])
+
         self.Gui = Gui(self, 1600, 900)
     
     def initPlayers(self):
@@ -154,6 +172,7 @@ class Engine:
         pass
 
     def run(self):
+       
         self.Gui.run()
 
 def inCircle(p1,p2,r):
