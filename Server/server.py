@@ -1,3 +1,6 @@
+# todo the event driven I/O cannot respond fast enough because of the
+# sequential code server execute right after. Multiple client could send
+# message at the same time and sequence of message could got mixed up
 import socket
 import select
 import logging
@@ -35,7 +38,7 @@ def handle_chat_message(client_socket, chat_message):
 def handle_login(client_socket, login_message):
     """link client socket to client username"""
     logger.info("client logged in as {}: {}".format(login_message.username,
-                                               client_socket.getpeername()))
+                                                    client_socket.getpeername()))
 
 
 def handle_logout(client_socket):
@@ -90,6 +93,8 @@ def handle_message(client_socket, data, **kwargs):
     }
     try:
         handler = dispatcher[data.__class__.__name__]
+        logger.info("handling {} message for client {}".format(
+            data.__class__.__name__, client_socket.getpeername()))
         handler(client_socket, data)
     except KeyError as ke:
         logger.error(
@@ -107,7 +112,7 @@ def handle_message(client_socket, data, **kwargs):
 def send_unpickled_message(sock, message):
     """would not pickle message, only use this function in debugging"""
     try:
-        sock.send(message)
+        sock.sendall(message)
     except Exception as e:
         logger.error("failed to send to socket: {}".format(sock.getpeername()))
         logger.debug(message)
@@ -117,7 +122,7 @@ def send_unpickled_message(sock, message):
 def send_to_socket(sock, message):
     try:
         pmessage = pickle.dumps(message)
-        sock.send(pmessage)
+        sock.sendall(pmessage)
     except Exception as e:
         logger.error("failed to send to socket: {}".format(sock.getpeername()))
         logger.debug(message)
@@ -134,7 +139,7 @@ def handle_connection_drop(all_connections, dropped_client_socket):
     :type dropped_client_socket: socket.socket
     :type all_connections: list
     """
-    logger.info(
+    logger.debug(
         "remove socket from all_connections: {}".format(
             dropped_client_socket.getpeername()))
     dropped_client_socket.close()
@@ -155,6 +160,40 @@ def handle_newclient(all_connections, new_client_socket):
 def shut_down(server_socket):
     [c.close() for c in all_connections if c != server_socket]
     server_socket.close()
+
+
+def recv_message_len_header(sock):
+    """return then length of the message
+    return 0 if connection broken"""
+    buf = b''
+    while not buf.endswith(b'\n'):
+        temp_buf = sock.recv(1)
+        if len(temp_buf) == 0: # client disconnected
+            return 0
+        buf += temp_buf
+    length = int(buf)
+    logger.debug("message length should be {}".format(length))
+    return length
+
+
+def recvall(sock, length):
+    """
+    receive data until size of length reached
+    :param sock: Socket
+    :param length: int
+    """
+    buf = b''
+    while length != len(buf):
+        temp_buf = sock.recv(length)
+        if len(temp_buf) == 0: # client disconnected
+            return 0
+        buf += temp_buf
+    return buf
+
+
+def summary():
+    return "clients still connected: {}".format([c.getpeername() for c in
+                                                 all_connections])
 
 
 def server():
@@ -196,8 +235,10 @@ def server():
                     # receive client message
                     try:
                         # todo can we receive all data instead of using buffersize
-                        message = client_sender_socket.recv(RECV_BUFFERSIZE)
-                        if message != b"":
+                        message_len = recv_message_len_header(
+                            client_sender_socket)
+                        message = recvall(client_sender_socket, message_len)
+                        if len(message) != 0:
                             logger.debug(
                                 "received message from client {}: {}"
                                 .format(client_sender_socket.getpeername(),
@@ -236,10 +277,12 @@ def server():
     # server shutdown
     except KeyboardInterrupt:
         logger.info("Server Shutting down from Keyboard")
+        logger.debug(summary())
         shut_down(server_socket)
     except Exception as e:
         logger.critical("Unexpected Exception: Server Shutdown")
         logger.exception(e)
+        logger.debug(summary())
         shut_down(server_socket)
 
 
