@@ -8,9 +8,8 @@ class Player:
         self.villages = []
         self.n = number
 
-    def addVillage(self,h):
-        self.villages.append(Village(h,self,[]))
-        h.village = self.villages[-1]
+    def addVillage(self,v):
+        self.villages.append(v)
 
 class Village:
     def __init__(self, h, p, t):
@@ -21,10 +20,11 @@ class Village:
         self.units = []
         self.owner = p
         self.territory = t
+        for h in t:
+            h.village = self
 
     def killUnits(self):
         pass
-
 
 class Unit:
     def __init__(self, ut, h, v):
@@ -90,7 +90,6 @@ class Hex:
 class Grid:
     def __init__(self, mapId, width, height):
         self.Id = mapId
-
         self.tn = 0
         self.sp = .09
         self.d = self.sp/1.05
@@ -107,8 +106,14 @@ class Grid:
         for h in self.hexes:
             self.keepHex(h)
 
+
     def populateMap(self, players):
-        pass
+        for h in self.hexes:
+            if not h.water and not h.village and h.owner:
+                territory = self.BFS(h, lambda g: True, lambda g: True if g.owner == h.owner else False)
+                v = random.choice(territory)
+                v.hasTree = False
+                players[h.owner].addVillage(Village(v, players[h.owner], territory))
 
     def keepHex(self, h):
         if h.water:
@@ -134,21 +139,34 @@ class Grid:
                 h.owner = 0
                 return False
 
+    def BFS(self, start, propertyFunc, siftFunc):
+        unchecked, checked = set(), set()
+        nodes = []
+        unchecked.add(start)
+        while len(unchecked)>0:
+            next = unchecked.pop()
+            checked.add(next)
+            if propertyFunc(next):
+                nodes.append(next)
+            for node in next.neighbours:
+                if siftFunc(node) and node not in checked and node not in unchecked:
+                    unchecked.add(node)
+        return nodes
+
 class Engine:
     def __init__(self, Id):
         self.gameId = Id
         self.turn = 0;
         self.roundsPlayed = 0
-        self.players = []
+        self.initPlayers()
         self.grid = Grid(1, 1600, 900)
+        self.grid.populateMap(self.players)
 
-        self.players.append(Player(0, "name", 1))
-        self.players[0].addVillage(self.grid.hexes[250])
 
         self.Gui = Gui(self, 1600, 900)
     
     def initPlayers(self):
-        pass
+        self.players = {x : Player(1,"name",x) for x in range(1,5)}
 
     def buildRoad(self, unit):
         pass
@@ -174,7 +192,6 @@ class Engine:
     def run(self):
        
         self.Gui.run()
-
 def inCircle(p1,p2,r):
     return math.sqrt(pow(p1[0]-p2[0],2)+pow(p1[1]-p2[1],2))<r
 

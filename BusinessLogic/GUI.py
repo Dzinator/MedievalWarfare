@@ -218,7 +218,7 @@ class UI:
         self.visible = 0
 
 class Overlay(Element):
-    def __init__(self, x, y, w, h, text, size = 0.04, c = [.5,.5,.5,.9]):
+    def __init__(self, x, y, w, h, text, size = 0.03, c = [.5,.5,.5,.9]):
         super().__init__(x,y,w,h,c)
         self.text = Text(x-w+size+0.01,y+h-size-0.01,size,text, [1,1,1,1])
 
@@ -256,7 +256,7 @@ class Gui:
 
         Text.image = self.bindTexture("ExportedFont_Alpha.png")
 
-        self.villageOverlays = [Overlay(v.hex.centre[0], v.hex.centre[1]+.05, 0.13, 0.025, "w:"+str(v.wood)+"  g:"+str(v.gold), 0.015, [0.8,0.8,0.8,0.5]) for v in self.engine.players[0].villages]
+        self.villageOverlays = [Overlay(v.hex.centre[0], v.hex.centre[1]+.05, 0.13, 0.025, "w:"+str(v.wood)+"  g:"+str(v.gold), 0.015, [0.8,0.8,0.8,0.5]) for v in self.engine.players[1].villages]
 
         self.show = False
         self.ui = UI(self)
@@ -271,7 +271,6 @@ class Gui:
 
         #objects
         self.initObjectBuffers()
-        
 
     def init(self):
         pygame.display.set_caption('Medival Warfare','Medival Warfare')
@@ -435,10 +434,10 @@ class Gui:
         glGenBuffers(1, self.unitcoloroffbuffer)
 
         #gather data
-        offset_array = [village.hex.centre for player in self.engine.players for village in player.villages]+[unit.hex.centre for player in self.engine.players for village in player.villages for unit in  village.units]
+        offset_array = [village.hex.centre for player in self.engine.players.values() for village in player.villages]+[unit.hex.centre for player in self.engine.players.values() for village in player.villages for unit in  village.units]
         self.nObjects = len(offset_array)
         offset_data =  np.array(offset_array, dtype=np.float32)
-        texOff_data = np.array([[3/self.spriteSheetCuts[0],2/self.spriteSheetCuts[1]] for player in self.engine.players for village in player.villages]+[[0,0] for player in self.engine.players for village in player.villages for unit in  village.units], dtype=np.float32)
+        texOff_data = np.array([[3/self.spriteSheetCuts[0],2/self.spriteSheetCuts[1]] for player in self.engine.players.values() for village in player.villages]+[[0,0] for player in self.engine.players.values() for village in player.villages for unit in  village.units], dtype=np.float32)
         colour_data = np.array([1,1,1,1]*4, dtype=np.float32)
         size = 0.05
         vertex_data = np.array([[-size,-size],[size,-size],[size,size],[-size,size]], dtype=np.float32)
@@ -481,10 +480,10 @@ class Gui:
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), ADT.voidDataPointer(g_overlayCOffset_buffer_data), GL_STATIC_DRAW)
         
     def updateObjectBuffers(self):
-        offset_array = [village.hex.centre for player in self.engine.players for village in player.villages]+[unit.hex.centre for player in self.engine.players for village in player.villages for unit in  village.units]
+        offset_array = [village.hex.centre for player in self.engine.players.values() for village in player.villages]+[unit.hex.centre for player in self.engine.players.values() for village in player.villages for unit in  village.units]
         self.nObjects = len(offset_array)
         offset_data =  np.array(offset_array, dtype=np.float32)
-        texOff_data = np.array([[0,0] for player in self.engine.players for village in player.villages]+[[0,0] for player in self.engine.players for village in player.villages for unit in  village.units], dtype=np.float32)
+        texOff_data = np.array([[0,0] for player in self.engine.players.values() for village in player.villages]+[[0,0] for player in self.engine.players.values() for village in player.villages for unit in  village.units], dtype=np.float32)
 
         glBindBuffer(GL_ARRAY_BUFFER, self.unitUVoffsetbuffer)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(texOff_data), None, GL_STATIC_DRAW)
@@ -584,7 +583,8 @@ class Gui:
                     {ord('a') : lambda: setattr(self, 'trans', [self.trans[0]-.1,self.trans[1]]),
                         ord('d') : lambda: setattr(self, 'trans', [self.trans[0]+.1,self.trans[1]]),
                         ord('w') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]+.1]),
-                        ord('s') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]-.1])
+                        ord('s') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]-.1]),
+                        ord('f') : lambda: print(len(self.engine.grid.BFS(self.selected, lambda h: True if h.owner == 1 else False, lambda h: True)))
                         }.get(event.key, lambda: True)()
                 if event.type == KEYUP:
                     {ord('a') : lambda: False
@@ -635,14 +635,14 @@ class Gui:
 
                 self.updateGridBuffers()
                 self.drawGrid()
-                if self.selected and self.selected.village:
+                if self.selected and self.selected.village and self.selected.owner == 1:
                     for o in self.villageOverlays:
                         o.draw()
 
                 glUniform2f(loc2,0,0)
                 glUniform1f(loc3,1)
                 if self.selected:
-                    if self.selected.village:
+                    if self.selected.village and self.selected.owner == 1:
                         self.ui.drawVillageUI()
                     elif self.selected.occupant:
                         self.ui.drawUnitUI()

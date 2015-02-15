@@ -43,7 +43,7 @@ class Main(QWidget):
         self.windows = {}
      
         self.setWindowFlags(QtCore.Qt.FramelessWindowHint)
-        self.resize(400, 400)
+        self.resize(600, 300)
         self.move(300, 300)
         self.setWindowTitle('Simple')
 
@@ -57,7 +57,7 @@ class Main(QWidget):
         top.setSpacing(0)
 
         self.bar = MoveBar(self)
-        self.bar.setFixedSize(300+40,20)
+        self.bar.setFixedSize(600+40,20)
         self.bar.setFixedHeight(20)
         self.bar.move(0,0)
         top.addWidget(self.bar)
