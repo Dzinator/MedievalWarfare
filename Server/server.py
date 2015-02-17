@@ -3,27 +3,17 @@
 # message at the same time and sequence of message could got mixed up
 # use process pool and use CV on individual socket to synchronize send and recv
 # or a simpler solution is to fire up a thread every time a request comes in
-
-# todo add threading support to ClientSocket
-
-
-# Assumption: the problem with select is that after it returns, during that
-# time,
-# buffer could accumulate more than one msg or connection on a single socket
-# there's no way to tell how many connection request and messages received
-# solution: it turns out select is monitoring the socket buffer
-# so when one message is handled and returned to select, it will read
-# immediately the next message and send it to handler
+import queue
 import socket
-import select
 import logging
 import sys
 import pickle
+import threading
 
-import Server.gameMessage.clientMessage as clientMessage
 
 
 # initialize logging
+import clientMessage
 
 logging.basicConfig(level="INFO",
                     format='%(asctime)s(%(threadName)-10s)[%(levelname)s] '
@@ -33,20 +23,25 @@ logger = logging.getLogger(__name__)
 
 # define global varaibles
 SERVER_ADDR = ("localhost", 8000)
+send_queue = queue.Queue()
 
 
-class ClientSocket():
+class ClientSocket(threading.Thread):
     """a wrapper on the socket from clients"""
 
     def __init__(self, sock, server):
         """
-        initilized with a raw socket returned by server_socket.accept()
-        :type server: Server
-        :type sock: socket.socket
-        """
+            initilized with a raw socket returned by server_socket.accept()
+            :type server: Server
+            :type sock: socket.socket
+            """
+        super().__init__()
         self.server = server
         self.socket = sock
         self.socket_addr = self.socket.getpeername()
+        self.username = None
+        self.closing = False
+        self.sendQ = queue.Queue()
 
     def send(self, message):
         """
@@ -56,8 +51,8 @@ class ClientSocket():
         and make sure the entire message is delivered.
         :type message: clientMessage.BaseClientMessage
         """
-        # todo use a synchronization machanism to restrict access to one thread
         try:
+            logger.info("sending message to {}".format(self.username))
             pmessage = pickle.dumps(message)
         except Exception as e:
             logger.error("failed to pickle message")
@@ -69,9 +64,9 @@ class ClientSocket():
             self.socket.sendall(header + pmessage)
         except OSError as ose:
             logger.error("failed to send to socket: {}".format(
-                self.socket.getpeername()))
-            logger.exception(ose)
-            logger.debug(message)
+                self.socket_addr))
+            logger.debug(ose)
+            self.close()
         return
 
     def recv(self):
@@ -79,7 +74,7 @@ class ClientSocket():
         wrap recv method to provide additional features:
         unpickle the message
         and make sure receive one and only one message
-        :rtype : None
+        :rtype : clientMessage.BaseClientMessage
         """
 
         # ----START HELPER FUNCTION----
@@ -120,25 +115,20 @@ class ClientSocket():
             message_len = receive_len_header(self.socket)
             new_pmsg = recv_real_message(self.socket, message_len)  # pickled
         except OSError as ose:  # connection dropped lead to exception
-            self.close(ose)
             return None
         if new_pmsg:  # received message successfully
             try:
                 new_msg = pickle.loads(new_pmsg)
                 logger.debug(
                     "received message from client {}: {}"
-                    .format(self.socket.getpeername(), new_msg))
+                    .format(self.socket_addr, new_msg))
             except Exception as e:
                 logger.error("message cannot be unpickled, "
                              "message format might be wrong.")
                 logger.debug(new_pmsg)
                 logger.exception(e)
             else:  # successfully received new message
-                # todo move handle out of recv method
-                self.handle_message(new_msg)
                 return new_msg
-        else:  # connection dropped
-            self.close()  # handle client connection dropped
         return None
 
     def close(self, an_exception=None):
@@ -146,15 +136,15 @@ class ClientSocket():
         gracefully close the socket and do the clean up
         :type an_exception: Exception
         """
+        if self.closing:
+            return
+        self.closing = True
         logger.info("client disconnected: {}"
                     .format(self.socket_addr))
         if an_exception:
-            # todo temprory ignore exception because constant
-            # ConnectionResetError during stress test caused
-            # by server's slow response time
             logger.warning("exception occured during disconnection: {"
                            "}".format(an_exception.__class__.__name__))
-            # logger.exception(an_exception)
+            logger.debug(an_exception)
         self.socket.close()
         self.server.drop_connection(self.socket)
 
@@ -165,14 +155,16 @@ class ClientSocket():
         receivers = self.server.all_connections
         for c in receivers:
             if c != self.socket:
-                self.server.clients[c].send(chat_message)
+                self.server.clients[c].sendQ.put(chat_message)
         logger.info("handle chat messaeg")
 
 
     def handle_login(self, login_message):
         """link client socket to client username"""
+        self.username = login_message.username
+        self.name = self.username  # change the thread name to username as well
         logger.info("client logged in as {}: {}"
-                    .format(login_message.username, self.socket.getpeername()))
+                    .format(self.username, self.socket_addr))
 
 
     def handle_logout(self):  # todo write change to disk
@@ -213,7 +205,7 @@ class ClientSocket():
 
     def handle_message(self, msg):
         """
-
+        verify and dispatch messages to different handler
         :type msg: clientMessage.BaseClientMessage
         """
         dispatcher = {
@@ -229,9 +221,11 @@ class ClientSocket():
             clientMessage.ChatMessage.__name__: self.handle_chat_message,
         }
         try:
+            # todo special treatment for login message
+            # client must be logged in before sending other messages
             handler = dispatcher[msg.__class__.__name__]
             logger.info("handling {} message for client {}".format(
-                msg.__class__.__name__, self.socket.getpeername()))
+                msg.__class__.__name__, self.socket_addr))
             handler(msg)
         except KeyError as ke:
             logger.error(
@@ -242,14 +236,45 @@ class ClientSocket():
             logger.debug(msg)
             logger.exception(e)
 
+    def do_send(self):
+        """
+        a sub thread execute this function to send message stored on sendQ
+        """
+        while not self.closing:
+            # block on get from Q
+            msg = self.sendQ.get()
+            # check if client has a username
+            if self.username:
+                threading.currentThread().setName(self.username + "-s")
+            # send the message
+            self.send(msg)
+
+    def run(self):
+        """
+        first spawn a thread to send
+        then it block on recv and put new message on sendQ
+        """
+        # spawn the sending thread
+        threading.Thread(target=self.do_send, daemon=True,
+                         name=self.name + "-s").start()
+        # main recv and handle loop
+        while not self.closing:
+            # block on recv
+            new_msg = self.recv()
+            if new_msg:
+                # handle message could be slow depending on message size
+                # we will not thread this for now
+                self.handle_message(new_msg)
+
 
 class Server():
     """the one and only Server itself"""
 
     def __init__(self, server_addr=("localhost", 8000),
-                 max_connections_allowed=10):
+                 max_connections_allowed=10, worker_threads=4):
         self.all_connections = []  # used to store clients
         self.clients = {}  # temporary store for instances of ClientSocket
+        self.WORKER_THREADS = worker_threads
 
         try:
             server_socket = socket.socket()
@@ -264,6 +289,23 @@ class Server():
             self.server_socket = server_socket
             logger.info("server started at {}".format(server_addr))
 
+    def work(self):
+        """used by worker thread"""
+        try:
+            while 1:
+                client_sock, message = send_queue.get()
+                client = self.clients.get(client_sock)
+                if client:
+                    client.handle_message(message)
+        except KeyboardInterrupt as kie:
+            pass
+        except Exception as e:
+            logger.error("Exception Occured in thread")
+            logger.exception(e)
+        finally:
+            logger.info("thread terminating")
+
+
     def drop_connection(self, dropped_client_socket):
         """
         handler for connection drop
@@ -275,42 +317,45 @@ class Server():
 
 
     def accept_new_connection(self):
+        """
+        block until a new client connected
+        then add this client to pool and return
+        """
         try:
             new_client_socket = self.server_socket.accept()[0]
         except OSError as ose:
             logger.error("failed to accept client connection")
         else:
-            self.clients[new_client_socket] = ClientSocket(new_client_socket,
-                                                           self)
+            new_client = ClientSocket(new_client_socket, self)
+            self.clients[new_client_socket] = new_client
             self.all_connections.append(new_client_socket)
+            new_client.start()
             logger.info("new client connected {}"
-                        .format(new_client_socket.getpeername()))
+                        .format(self.clients[new_client_socket].socket_addr))
 
     def summary(self):
-        logger.info("Summary: clients still connected: {}".format(
-            [c for c in self.all_connections]))
+        logger.info("Summary: clients still connected: {}"
+                    .format(self.all_connections))
 
     def shut_down(self):
-        [c.close() for c in self.clients]
+        try:
+            while 1:
+                _, client = self.clients.popitem()
+                client.close()
+        except KeyError as ke:
+            pass
         self.server_socket.close()
         self.summary()
 
 
     def run(self):
+        # launch thread pool on send queue
+        send_queue.put(("hello", "world"))
+
         # main loop
         try:
             while True:
-                read_sockets, _, _ = select.select(
-                    self.all_connections + [self.server_socket], [], [])
-                for incoming_socket in read_sockets:
-                    # new connection
-                    if incoming_socket == self.server_socket:
-                        self.accept_new_connection()
-                    # client message
-                    else:
-                        client_sender_socket = incoming_socket
-                        self.clients[client_sender_socket].recv()
-
+                self.accept_new_connection()
         # server shutdown
         except KeyboardInterrupt:
             logger.info("Server Shutting down from Keyboard")

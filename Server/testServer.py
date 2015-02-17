@@ -1,10 +1,11 @@
 import socket
 import pickle
 import time
-from Server.gameMessage.clientMessage import *
-from Server.server import SERVER_ADDR
-from Server.mockClient import send_to_server, recv_from_server
 import unittest
+
+from clientMessage import *
+from server import SERVER_ADDR
+from mockClient import send_to_server, recv_from_server
 
 
 class testServer(unittest.TestCase):
