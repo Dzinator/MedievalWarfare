@@ -1,4 +1,4 @@
-import pygame, sys,math,  numpy as np, OpenGL.arrays.vbo as glvbo
+import pygame, sys,math,  numpy as np, OpenGL.arrays.vbo as glvbo, threading
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.raw import GL as g
@@ -185,7 +185,9 @@ class UI:
         self.visible = 0
         self.gui = gui
         self.unitButtons = [Button(-1.6+i*.4,-.9,.13,.03, lambda: setattr(self.gui, 'show', not self.gui.show), t) for i,t in enumerate(["upgrade", "combine"])]
-        self.villageButtons = [Button(-1.6+i*.4,-.9,.14,.03, lambda: setattr(self.gui, 'show', not self.gui.show), t) for i,t in enumerate(["upgrade", "purchase" ])]
+        self.villageButtons = []
+        self.villageButtons.append(Button(-1.6,-.9,.14,.03, lambda: self.gui.selected.village.spawnUnit(self.gui.selected), "spawn"))
+        self.villageButtons.append(Button(-1.1,-.9,.18,.03, lambda: setattr(self.gui, 'show', not self.gui.show), "territories"))
         self.hexButtons = [Button(-1.4+i*.4,-.9,.18,.03, lambda: self.gui.selected.putTree(), t) for i,t in enumerate(["plant tree"])]
 
     def click(self, p):
@@ -240,16 +242,13 @@ class Gui:
         self.shader = self.shaders()
         self.selected = None
         self.spriteSheetCuts = (4,2)
-        self.back = Element(.27,.6,2.05,1.6,[0,0,0,.99])
 
         self.mainClock = pygame.time.Clock()
         shaders.glUseProgram(self.shader)
-        loc = glGetUniformLocation(self.shader,'lightPos')
-        glUniform2f(loc,0,0)
-        loc2 = glGetUniformLocation(self.shader,'engine')
-        glUniform2f(loc2,0,0)
-        loc3 = glGetUniformLocation(self.shader,'zoom')
-        glUniform1f(loc3,1)
+        self.transloc= glGetUniformLocation(self.shader,'engine')
+        glUniform2f(self.transloc,0,0)
+        self.zoomloc = glGetUniformLocation(self.shader,'zoom')
+        glUniform1f(self.zoomloc,1)
         self.running = True
 
         self.mapTex = self.bindTexture("texture2.png")
@@ -291,7 +290,6 @@ class Gui:
         layout (location = 4) in vec2 UVOffset;
         layout (location = 5) in vec4 colorOffsetin;
 
-        uniform vec2 lightPos;
         uniform vec2 engine;
         uniform float zoom;
 
@@ -358,6 +356,9 @@ class Gui:
         self.overlaycffsetbuffer = g._types.GLuint(0);
         glGenBuffers(1, self.overlaycffsetbuffer)
 
+        self.overlayoffsetbuffer = g._types.GLuint(0);
+        glGenBuffers(1, self.overlayoffsetbuffer)
+
         d = self.engine.grid.d
         point_data = np.array([[-d/2,-d*math.sin(math.pi/3)], 
                 [d/2,-d*math.sin(math.pi/3)],
@@ -365,19 +366,8 @@ class Gui:
                 [d/2,d*math.sin(math.pi/3)], 
                 [-d/2,d*math.sin(math.pi/3)], 
                 [-d,0]],dtype=np.float32)
-        glBindBuffer(GL_ARRAY_BUFFER, self.gridvertexbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(point_data), ADT.voidDataPointer(point_data), GL_STATIC_DRAW)
-
         colour_data = np.array([1,1,1,1]*6, dtype=np.float32)
-        glBindBuffer(GL_ARRAY_BUFFER, self.gridcolorbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(colour_data), ADT.voidDataPointer(colour_data), GL_STATIC_DRAW)
-
-
-        centres = [ h.centre for h in self.engine.grid.hexes]
-        g_offset_buffer_data = np.array(centres, dtype=np.float32)
-        glBindBuffer(GL_ARRAY_BUFFER, self.gridoffsetbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_offset_buffer_data), ADT.voidDataPointer(g_offset_buffer_data), GL_STATIC_DRAW)
-
+        g_offset_buffer_data = np.array([ h.centre for h in self.engine.grid.hexes], dtype=np.float32)
         texData = [[1/self.spriteSheetCuts[0]*(h[0]+.5),1/self.spriteSheetCuts[1]*(h[1]+.5)] for h in [[-.25,-.5*math.sin(math.pi/3)], 
                                             [.25,-.5*math.sin(math.pi/3)],
                                             [.5,0],
@@ -386,14 +376,8 @@ class Gui:
                                             [-.5,0]
                                             ]]
         vert_data = np.array(texData, dtype=np.float32)
-        glBindBuffer(GL_ARRAY_BUFFER, self.gridtexbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(vert_data), ADT.voidDataPointer(vert_data), GL_STATIC_DRAW)
-
-        UVoffsets = [ [1/self.spriteSheetCuts[0],0] if h.hasTree else ([0,1/self.spriteSheetCuts[1]] if h.water else [0,0]) for h in self.engine.grid.hexes]
-        g_UVoffset_buffer_data = np.array( UVoffsets, dtype=np.float32)
-        glBindBuffer(GL_ARRAY_BUFFER, self.gridUVoffsetbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_UVoffset_buffer_data), ADT.voidDataPointer(g_UVoffset_buffer_data), GL_STATIC_DRAW)
-
+        self.gridUVoffsets = [[1/self.spriteSheetCuts[0],0] if h.hasTree else ([0,1/self.spriteSheetCuts[1]] if h.water else ([2/self.spriteSheetCuts[0],0] if h.hasMeadow else[0,0])) for h in self.engine.grid.hexes]
+        g_UVoffset_buffer_data = np.array(self.gridUVoffsets, dtype=np.float32)
         d-=.02
         g_overlay_buffer_data = np.array([[-d/2,-d*math.sin(math.pi/3)], 
                 [d/2,-d*math.sin(math.pi/3)],
@@ -401,17 +385,37 @@ class Gui:
                 [d/2,d*math.sin(math.pi/3)], 
                 [-d/2,d*math.sin(math.pi/3)], 
                 [-d,0]], dtype=np.float32)
+        g_overlayColor_buffer_data = np.array([0,0,0,.6]*6, dtype=np.float32)
+        self.overlaycolors = [[0.6118, .0118, 0.2824, 0] if h.owner==1 else ([0.0314, 0.5882, 0.651, 0] if h.owner ==2 else ([0, 0.0196, 0.302,0] if h.owner == 3 else ([.8098,0.3784, 0.0196,0] if h.owner == 4 else [0,0,0,-.6])))  for h in self.engine.grid.land]
+        g_overlayCOffset_buffer_data = np.array(self.overlaycolors, dtype=np.float32)
+        g_overlayOffset_buffer_data = np.array([h.centre for h in self.engine.grid.land], dtype=np.float32)
+
+        glBindBuffer(GL_ARRAY_BUFFER, self.gridvertexbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(point_data), ADT.voidDataPointer(point_data), GL_STATIC_DRAW)
+
+        glBindBuffer(GL_ARRAY_BUFFER, self.gridcolorbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(colour_data), ADT.voidDataPointer(colour_data), GL_STATIC_DRAW)
+
+        glBindBuffer(GL_ARRAY_BUFFER, self.gridoffsetbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_offset_buffer_data), ADT.voidDataPointer(g_offset_buffer_data), GL_STATIC_DRAW)
+        
+        glBindBuffer(GL_ARRAY_BUFFER, self.gridtexbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(vert_data), ADT.voidDataPointer(vert_data), GL_STATIC_DRAW)
+
+        glBindBuffer(GL_ARRAY_BUFFER, self.gridUVoffsetbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_UVoffset_buffer_data), ADT.voidDataPointer(g_UVoffset_buffer_data), GL_STATIC_DRAW)
+       
         glBindBuffer(GL_ARRAY_BUFFER, self.overlaybuffer)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlay_buffer_data), ADT.voidDataPointer(g_overlay_buffer_data), GL_STATIC_DRAW)
-
-        g_overlayColor_buffer_data = np.array([0,0,0,.6]*6, dtype=np.float32)
+        
         glBindBuffer(GL_ARRAY_BUFFER, self.overlaycolorbuffer)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayColor_buffer_data), ADT.voidDataPointer(g_overlayColor_buffer_data), GL_STATIC_DRAW)
-        
-        #[0.94,0.156,0.184,0] if h.owner==1 else ([0.165,0.63,0.6,0] if h.owner ==2 else ([1,1,1,0] if h.owner == 3 else ([0.8, 0.8, 0.1,0] if h.owner == 4 else [0,0,0,0]))) 
-        g_overlayCOffset_buffer_data = np.array([[0.6118, .0118, 0.2824, 0] if h.owner==1 else ([0.0314, 0.5882, 0.651, 0] if h.owner ==2 else ([0, 0.0196, 0.302,0] if h.owner == 3 else ([.8098,0.3784, 0.0196,0] if h.owner == 4 else [0,0,0,-.6])))  for h in self.engine.grid.hexes], dtype=np.float32)
+       
         glBindBuffer(GL_ARRAY_BUFFER, self.overlaycffsetbuffer)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), ADT.voidDataPointer(g_overlayCOffset_buffer_data), GL_STATIC_DRAW)
+
+        glBindBuffer(GL_ARRAY_BUFFER, self.overlayoffsetbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayOffset_buffer_data), ADT.voidDataPointer(g_overlayOffset_buffer_data), GL_STATIC_DRAW)
 
     def initObjectBuffers(self):
         #gen buffers
@@ -437,7 +441,7 @@ class Gui:
         offset_array = [village.hex.centre for player in self.engine.players.values() for village in player.villages]+[unit.hex.centre for player in self.engine.players.values() for village in player.villages for unit in  village.units]
         self.nObjects = len(offset_array)
         offset_data =  np.array(offset_array, dtype=np.float32)
-        texOff_data = np.array([[3/self.spriteSheetCuts[0],2/self.spriteSheetCuts[1]] for player in self.engine.players.values() for village in player.villages]+[[0,0] for player in self.engine.players.values() for village in player.villages for unit in  village.units], dtype=np.float32)
+        texOff_data = np.array([[3/self.spriteSheetCuts[0],0] for player in self.engine.players.values() for village in player.villages]+[[3/self.spriteSheetCuts[0],2/self.spriteSheetCuts[0]] for player in self.engine.players.values() for village in player.villages for unit in  village.units], dtype=np.float32)
         colour_data = np.array([1,1,1,1]*4, dtype=np.float32)
         size = 0.05
         vertex_data = np.array([[-size,-size],[size,-size],[size,size],[-size,size]], dtype=np.float32)
@@ -464,36 +468,35 @@ class Gui:
 
     def updateGridBuffers(self):
         #needs change
-        g_UVoffset_buffer_data = np.array(  [ [1/self.spriteSheetCuts[0],0] if h.hasTree else ([0,1/self.spriteSheetCuts[1]] if h.water else [0,0]) for h in self.engine.grid.hexes], dtype=np.float32)
-        glBindBuffer(GL_ARRAY_BUFFER, self.gridUVoffsetbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_UVoffset_buffer_data), None, GL_STREAM_DRAW)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_UVoffset_buffer_data), ADT.voidDataPointer(g_UVoffset_buffer_data), GL_STREAM_DRAW)
+        if self.selected:
+            n = self.engine.grid.hexes.index(self.selected)
+            self.gridUVoffsets[n] = [1/self.spriteSheetCuts[0],0] if self.selected.hasTree else ([0,1/self.spriteSheetCuts[1]] if self.selected.water else ([2/self.spriteSheetCuts[0],0] if self.selected.hasMeadow else[0,0]))
+            g_UVoffset_buffer_data = np.array(self.gridUVoffsets, dtype=np.float32)
+            g_overlayCOffset_buffer_data = np.array(self.overlaycolors, dtype=np.float32)
 
-        g_overlayCOffset_buffer_data = np.array([[1,0,0,0] if h == self.selected else 
-                                                 ([0.6118, .0118, 0.2824, 0] if h.owner==1 else 
-                                                 ([0.0314, 0.5882, 0.651, 0] if h.owner ==2 else
-                                                  ([0, 0.0196, 0.302,0] if h.owner == 3 else
-                                                   ([.8098,0.3784, 0.0196,0] if h.owner == 4 else
-                                                    [0,0,0,-.6]))))  for h in self.engine.grid.hexes], dtype=np.float32)
-        glBindBuffer(GL_ARRAY_BUFFER, self.overlaycffsetbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), None, GL_STATIC_DRAW)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), ADT.voidDataPointer(g_overlayCOffset_buffer_data), GL_STATIC_DRAW)
+            glBindBuffer(GL_ARRAY_BUFFER, self.gridUVoffsetbuffer)
+            glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_UVoffset_buffer_data), None, GL_STREAM_DRAW)
+            glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_UVoffset_buffer_data), ADT.voidDataPointer(g_UVoffset_buffer_data), GL_STREAM_DRAW)
+            
+            glBindBuffer(GL_ARRAY_BUFFER, self.overlaycffsetbuffer)
+            glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), None, GL_STATIC_DRAW)
+            glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), ADT.voidDataPointer(g_overlayCOffset_buffer_data), GL_STREAM_DRAW)
         
     def updateObjectBuffers(self):
         offset_array = [village.hex.centre for player in self.engine.players.values() for village in player.villages]+[unit.hex.centre for player in self.engine.players.values() for village in player.villages for unit in  village.units]
         self.nObjects = len(offset_array)
         offset_data =  np.array(offset_array, dtype=np.float32)
-        texOff_data = np.array([[0,0] for player in self.engine.players.values() for village in player.villages]+[[0,0] for player in self.engine.players.values() for village in player.villages for unit in  village.units], dtype=np.float32)
+        texOff_data = np.array([[3/self.spriteSheetCuts[0],0] for player in self.engine.players.values() for village in player.villages]+[[3/self.spriteSheetCuts[0],1/self.spriteSheetCuts[1]] for player in self.engine.players.values() for village in player.villages for unit in  village.units], dtype=np.float32)
 
         glBindBuffer(GL_ARRAY_BUFFER, self.unitUVoffsetbuffer)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(texOff_data), None, GL_STATIC_DRAW)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(texOff_data), ADT.voidDataPointer(texOff_data), GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(texOff_data), ADT.voidDataPointer(texOff_data), GL_STREAM_DRAW)
 
         glBindBuffer(GL_ARRAY_BUFFER, self.unitoffsetbuffer)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(offset_data), None, GL_STATIC_DRAW)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(offset_data), ADT.voidDataPointer(offset_data), GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(offset_data), ADT.voidDataPointer(offset_data), GL_STREAM_DRAW)
 
-    def drawGrid(self):
+    def drawMap(self):
         glBindTexture(GL_TEXTURE_2D, self.mapTex)
         glEnableVertexAttribArray(0)
         glBindBuffer(GL_ARRAY_BUFFER, self.gridvertexbuffer)
@@ -524,11 +527,13 @@ class Gui:
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, None)
         glBindBuffer(GL_ARRAY_BUFFER, self.overlaycolorbuffer)
         glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, None)
+        glBindBuffer(GL_ARRAY_BUFFER, self.overlayoffsetbuffer)
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, None)
         glEnableVertexAttribArray(5)
         glBindBuffer(GL_ARRAY_BUFFER, self.overlaycffsetbuffer)
         glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 0, None)
 
-        glDrawArraysInstanced(GL_LINE_LOOP, 0, 6,len(self.engine.grid.hexes))
+        glDrawArraysInstanced(GL_LINE_LOOP, 0, 6,len(self.engine.grid.land))
 
         glBindBuffer(GL_ARRAY_BUFFER, self.unitvertexbuffer)
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, None)
@@ -563,94 +568,70 @@ class Gui:
 
     def run(self):
         while self.running:
-            events = False
             for event in pygame.event.get():
-                events = True 
-                if event.type == QUIT:
+                if event.type == QUIT or (event.type == KEYUP and event.key == K_ESCAPE):
                     pygame.quit()
                     self.running = False
-                if event.type == KEYUP and event.key == K_ESCAPE:
-                    pygame.quit()
-                    self.running = False
-                if event.type == KEYUP and event.key == ord('z'):
-                    self.zoom = 2 if self.zoom == 1 else 1
-                    loc3 = glGetUniformLocation(self.shader,'zoom')
-                    glUniform1f(loc3,self.zoom)
-                    click = convertPoint(pygame.mouse.get_pos(),self) if self.zoom == 2 else [0,0]
-                    loc2 = glGetUniformLocation(self.shader,'engine')
-                    glUniform2f(loc2,-click[0],-click[1])
-                if event.type == KEYDOWN:
+                elif event.type == KEYDOWN:
                     {ord('a') : lambda: setattr(self, 'trans', [self.trans[0]-.1,self.trans[1]]),
                         ord('d') : lambda: setattr(self, 'trans', [self.trans[0]+.1,self.trans[1]]),
                         ord('w') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]+.1]),
-                        ord('s') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]-.1]),
-                        ord('f') : lambda: print(len(self.engine.grid.BFS(self.selected, lambda h: True if h.owner == 1 else False, lambda h: True)))
+                        ord('s') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]-.1])
                         }.get(event.key, lambda: True)()
-                if event.type == KEYUP:
-                    {ord('a') : lambda: False
-                    }.get(event.key, lambda: True)() 
-                if event.type == MOUSEBUTTONDOWN:
+                elif event.type == MOUSEBUTTONDOWN:
                     if event.button == 4 or event.button == 5:
                         self.zoom = self.zoom/.90 if event.button == 4 else self.zoom*.90
-                        loc3 = glGetUniformLocation(self.shader,'zoom')
-                        glUniform1f(loc3,self.zoom)
-                    if event.button == 1:
+                    elif event.button == 1:
                         self.mouseDown = True
-                    if event.button == 3:
+                    elif event.button == 3:
                         click = self.convertPoint(pygame.mouse.get_pos())
-                        for h in self.engine.grid.hexes:
+                        if self.selected:
+                            n = self.engine.grid.land.index(self.selected)
+                            g = self.engine.grid.land[n]
+                            self.overlaycolors[n] = [0.6118, .0118, 0.2824, 0] if g.owner==1 else ([0.0314, 0.5882, 0.651, 0] if g.owner ==2 else ([0, 0.0196, 0.302,0] if g.owner == 3 else ([.8098,0.3784, 0.0196,0] if g.owner == 4 else [0,0,0,-.6])))
+                        for h in self.engine.grid.land:
                             if self.inCircle((h.centre), click, .09):
                                 self.selected = h
+                                self.overlaycolors[self.engine.grid.land.index(self.selected)] = [1,0,0,0]
                                 break
-                if event.type == MOUSEBUTTONUP:
+                elif event.type == MOUSEBUTTONUP:
                     if event.button == 1:
                         self.mouseDown = False
                         self.ui.click(self.convertStaticPoint(pygame.mouse.get_pos()))
-                if event.type == MOUSEMOTION:
-                    if self.mouseDown:
-                        rel = event.rel
-                        self.trans[0] += rel[0]*.003/self.zoom
-                        self.trans[1] -= rel[1]*.003/self.zoom
+                elif event.type == MOUSEMOTION and self.mouseDown:
+                    rel = event.rel
+                    self.trans[0] += rel[0]*.003/self.zoom
+                    self.trans[1] -= rel[1]*.003/self.zoom
             if self.running:
-                if self.zoom<1:
-                    self.zoom = 1
-                if self.zoom>2.09:
-                    self.zoom = 2.09
-                #viewbox
-                if self.trans[0]>0.8*self.zoom:
-                    self.trans[0] = 0.8*self.zoom
-                if self.trans[0]<-0.8*self.zoom:
-                    self.trans[0] = -0.8*self.zoom
-                if self.trans[1]>0.6*self.zoom:
-                    self.trans[1] = 0.6*self.zoom
-                if self.trans[1]<-0.6*self.zoom:
-                    self.trans[1] = -0.6*self.zoom
-                loc2 = glGetUniformLocation(self.shader,'engine')
-                loc3 = glGetUniformLocation(self.shader,'zoom')
-                glUniform2f(loc2,self.trans[0],self.trans[1])
-                glUniform1f(loc3,self.zoom)
+                self.zoom = max(1, min(2.09, self.zoom))
+                self.trans = [max(-0.8*self.zoom, min(0.8*self.zoom,self.trans[0])), max(-0.6*self.zoom, min(0.6*self.zoom, self.trans[1]))]
+                
                 glClear(GL_COLOR_BUFFER_BIT)
-                self.back.draw()
+                glUniform2f(self.transloc,self.trans[0],self.trans[1])
+                glUniform1f(self.zoomloc,self.zoom)
                 glLineWidth(4*self.zoom)
-
+                
                 self.updateGridBuffers()
-                self.drawGrid()
+                self.updateObjectBuffers()
+                self.drawMap()
                 if self.selected and self.selected.village and self.selected.owner == 1:
                     for o in self.villageOverlays:
                         o.draw()
-
-                glUniform2f(loc2,0,0)
-                glUniform1f(loc3,1)
+                
+                glUniform2f(self.transloc,0,0)
+                glUniform1f(self.zoomloc,1)
+                
                 if self.selected:
-                    if self.selected.village and self.selected.owner == 1:
-                        self.ui.drawVillageUI()
-                    elif self.selected.occupant:
+                    if self.selected.occupant:
                         self.ui.drawUnitUI()
-                    else:
+                    elif self.selected.village and self.selected.owner == 1:
+                        self.ui.drawVillageUI()
+                    elif self.selected.owner == 0:
                         self.ui.drawHexUI()
                 if self.show:
                     self.text.draw()
-                self.mainClock.tick(60)
+
+                self.mainClock.tick(30)
                 pygame.display.flip()
 
     def inCircle(self,p1,p2,r):
