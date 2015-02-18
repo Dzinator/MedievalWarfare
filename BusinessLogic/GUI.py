@@ -30,12 +30,12 @@ class Text:
         self.size = size
         self.centre = [i,j]
         self.colour = c
-        self.changeText(text)
+        self.changeText(text, i, j)
         
 
-    def changeText(self,text):
-        x = self.centre[0]
-        y = self.centre[1]
+    def changeText(self,text, i, j):
+        x = self.centre[0] = i
+        y = self.centre[1] = j
         size = self.size
         
         centres=[]
@@ -145,6 +145,12 @@ class Element:
         glBindBuffer(GL_ARRAY_BUFFER, self.texoffbuffer)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texoffVerts ), ADT.voidDataPointer(self.texoffVerts ), GL_STATIC_DRAW)
 
+    def update(self):
+        g_tex_buffer_data = np.array([[-self.w+self.centre[0],-self.h+self.centre[1]],[self.w+self.centre[0],-self.h+self.centre[1]],[self.w+self.centre[0],self.h+self.centre[1]],[-self.w+self.centre[0],self.h+self.centre[1]]] , dtype=np.float32)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vertexbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_tex_buffer_data), None, GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_tex_buffer_data), ADT.voidDataPointer(g_tex_buffer_data), GL_STATIC_DRAW)
+
     def draw(self):
         glEnableVertexAttribArray(0)
         glBindBuffer(GL_ARRAY_BUFFER, self.vertexbuffer)
@@ -175,6 +181,8 @@ class Button(Element):
     def click(self, p):
         if self.inSquare(p):
             self.clickFunction()
+            return True
+        return False
 
     def draw(self):
         super().draw()
@@ -184,22 +192,40 @@ class UI:
     def __init__(self, gui):
         self.visible = 0
         self.gui = gui
-        self.unitButtons = [Button(-1.6+i*.4,-.9,.13,.03, lambda: setattr(self.gui, 'show', not self.gui.show), t) for i,t in enumerate(["upgrade", "combine"])]
+        self.unitButtons = []
+        self.unitButtons.append(Button(-.4,-.9,.22,.03, lambda: self.gui.selected.occupant.upgrade(3), "upgrade knight"))
+        self.unitButtons.append(Button(-.9,-.9,.22,.03, lambda: self.gui.selected.occupant.upgrade(2), "upgrade soldier"))
+        self.unitButtons.append(Button(-1.4,-.9,.22,.03, lambda: self.gui.selected.occupant.upgrade(1), "upgrade infantry"))
+        
+        
         self.villageButtons = []
-        self.villageButtons.append(Button(-1.6,-.9,.14,.03, lambda: self.gui.selected.village.spawnUnit(self.gui.selected), "spawn"))
-        self.villageButtons.append(Button(-1.1,-.9,.18,.03, lambda: setattr(self.gui, 'show', not self.gui.show), "territories"))
+        
+        self.villageButtons.append(Button(-1.4,-.9,.2,.03, lambda: self.gui.selected.village.spawnUnit(self.gui.selected,0), "buy peasant"))
+        self.villageButtons.append(Button(-.9,-.9,.2,.03, lambda: self.gui.selected.village.spawnUnit(self.gui.selected,1), "buy infantry"))
+        
+        self.villageButtons.append(Button(-.4,-.9,.2,.03, lambda: self.gui.selected.village.spawnUnit(self.gui.selected,2), "buy soldier"))
+        self.villageButtons.append(Button(.1,-.9,.2,.03, lambda: self.gui.selected.village.spawnUnit(self.gui.selected,3), "buy knight"))
+        self.villageButtons.append(Button(.6,-.9,.2,.03, lambda: self.gui.selected.village.upgrade(), "upgrade town"))
+        self.villageButtons.append(Button(1.1,-.9,.2,.03, lambda: self.gui.selected.buildWatchTower(), "build tower"))
+                
+        #self.villageButtons.append(Button(-1.1,-.9,.18,.03, lambda: setattr(self.gui, 'show', not self.gui.show), "territories"))
         self.hexButtons = [Button(-1.4+i*.4,-.9,.18,.03, lambda: self.gui.selected.putTree(), t) for i,t in enumerate(["plant tree"])]
 
     def click(self, p):
+        
         if self.visible ==1:
             for b in self.hexButtons:
-                b.click(p)
+                if b.click(p):
+                    return True
         elif self.visible ==2:
             for b in self.unitButtons:
-                b.click(p)
+                if b.click(p):
+                    return True
         elif self.visible ==3:
             for b in self.villageButtons:
-                b.click(p)
+                if b.click(p):
+                    return True
+        return False
 
     def drawHexUI(self):
         self.visible = 1
@@ -221,8 +247,17 @@ class UI:
 
 class Overlay(Element):
     def __init__(self, x, y, w, h, text, size = 0.03, c = [.5,.5,.5,.9]):
+        self.size = size
+        w= len(text)*size+.01
         super().__init__(x,y,w,h,c)
         self.text = Text(x-w+size+0.01,y+h-size-0.01,size,text, [1,1,1,1])
+
+    def update(self, text):
+        self.w = len(text)*self.size+.01
+        self.text.changeText(text, self.centre[0]-self.w+self.size+0.01,self.centre[1]+self.h-self.size-0.01)
+        super().update()
+        
+        
 
     def draw(self):
         super().draw()
@@ -241,7 +276,7 @@ class Gui:
         self.trans = [0,0]
         self.shader = self.shaders()
         self.selected = None
-        self.spriteSheetCuts = (4,2)
+        self.spriteSheetCuts = (4,3)
 
         self.mainClock = pygame.time.Clock()
         shaders.glUseProgram(self.shader)
@@ -255,7 +290,7 @@ class Gui:
 
         Text.image = self.bindTexture("ExportedFont_Alpha.png")
 
-        self.villageOverlays = [Overlay(v.hex.centre[0], v.hex.centre[1]+.05, 0.13, 0.025, "w:"+str(v.wood)+"  g:"+str(v.gold), 0.015, [0.8,0.8,0.8,0.5]) for v in self.engine.players[1].villages]
+        self.villageOverlays = {v : Overlay(v.hex.centre[0], v.hex.centre[1]+.05, 0.2, 0.025, "w:"+str(v.wood)+"  g:"+str(v.gold), 0.015, [0.8,0.8,0.8,0.5]) for v in self.engine.players[1].villages}
 
         self.show = False
         self.ui = UI(self)
@@ -376,7 +411,7 @@ class Gui:
                                             [-.5,0]
                                             ]]
         vert_data = np.array(texData, dtype=np.float32)
-        self.gridUVoffsets = [[1/self.spriteSheetCuts[0],0] if h.hasTree else ([0,1/self.spriteSheetCuts[1]] if h.water else ([2/self.spriteSheetCuts[0],0] if h.hasMeadow else[0,0])) for h in self.engine.grid.hexes]
+        self.gridUVoffsets = [[1/self.spriteSheetCuts[0],1/self.spriteSheetCuts[1]] if h.hasTree else ([3/self.spriteSheetCuts[0],1/self.spriteSheetCuts[1]] if h.water else ([2/self.spriteSheetCuts[0],1/self.spriteSheetCuts[1]] if h.hasMeadow else[0,1/self.spriteSheetCuts[1]])) for h in self.engine.grid.hexes]
         g_UVoffset_buffer_data = np.array(self.gridUVoffsets, dtype=np.float32)
         d-=.02
         g_overlay_buffer_data = np.array([[-d/2,-d*math.sin(math.pi/3)], 
@@ -441,7 +476,7 @@ class Gui:
         offset_array = [village.hex.centre for player in self.engine.players.values() for village in player.villages]+[unit.hex.centre for player in self.engine.players.values() for village in player.villages for unit in  village.units]
         self.nObjects = len(offset_array)
         offset_data =  np.array(offset_array, dtype=np.float32)
-        texOff_data = np.array([[3/self.spriteSheetCuts[0],0] for player in self.engine.players.values() for village in player.villages]+[[3/self.spriteSheetCuts[0],2/self.spriteSheetCuts[0]] for player in self.engine.players.values() for village in player.villages for unit in  village.units], dtype=np.float32)
+        texOff_data = np.array([[0,0] for player in self.engine.players.values() for village in player.villages]+[[unit.type/self.spriteSheetCuts[0],2/self.spriteSheetCuts[1]] for player in self.engine.players.values() for village in player.villages for unit in  village.units], dtype=np.float32)
         colour_data = np.array([1,1,1,1]*4, dtype=np.float32)
         size = 0.05
         vertex_data = np.array([[-size,-size],[size,-size],[size,size],[-size,size]], dtype=np.float32)
@@ -468,25 +503,38 @@ class Gui:
 
     def updateGridBuffers(self):
         #needs change
-        if self.selected:
-            n = self.engine.grid.hexes.index(self.selected)
-            self.gridUVoffsets[n] = [1/self.spriteSheetCuts[0],0] if self.selected.hasTree else ([0,1/self.spriteSheetCuts[1]] if self.selected.water else ([2/self.spriteSheetCuts[0],0] if self.selected.hasMeadow else[0,0]))
-            g_UVoffset_buffer_data = np.array(self.gridUVoffsets, dtype=np.float32)
-            g_overlayCOffset_buffer_data = np.array(self.overlaycolors, dtype=np.float32)
+        #n = self.engine.grid.hexes.index(self.selected)
+        #self.gridUVoffsets[n] = [1/self.spriteSheetCuts[0],0] if self.selected.hasTree else ([0,1/self.spriteSheetCuts[1]] if self.selected.water else ([2/self.spriteSheetCuts[0],0] if self.selected.hasMeadow else[0,0]))
+        self.gridUVoffsets = [[1/self.spriteSheetCuts[0],1/self.spriteSheetCuts[1]] if h.hasTree else ([3/self.spriteSheetCuts[0],1/self.spriteSheetCuts[1]] if h.water else ([2/self.spriteSheetCuts[0],1/self.spriteSheetCuts[1]] if h.hasMeadow else[0,1/self.spriteSheetCuts[1]])) for h in self.engine.grid.hexes]
+        self.overlaycolors = [[1,0,0,0] if self.selected == h else([0.6118, .0118, 0.2824, 0] if h.owner==1 else ([0.0314, 0.5882, 0.651, 0] if h.owner ==2 else ([0, 0.0196, 0.302,0] if h.owner == 3 else ([.8098,0.3784, 0.0196,0] if h.owner == 4 else [0,0,0,-.6]))))  for h in self.engine.grid.land]
+        g_UVoffset_buffer_data = np.array(self.gridUVoffsets, dtype=np.float32)
+        g_overlayCOffset_buffer_data = np.array(self.overlaycolors, dtype=np.float32)
 
-            glBindBuffer(GL_ARRAY_BUFFER, self.gridUVoffsetbuffer)
-            glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_UVoffset_buffer_data), None, GL_STREAM_DRAW)
-            glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_UVoffset_buffer_data), ADT.voidDataPointer(g_UVoffset_buffer_data), GL_STREAM_DRAW)
+        glBindBuffer(GL_ARRAY_BUFFER, self.gridUVoffsetbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_UVoffset_buffer_data), None, GL_STREAM_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_UVoffset_buffer_data), ADT.voidDataPointer(g_UVoffset_buffer_data), GL_STREAM_DRAW)
             
-            glBindBuffer(GL_ARRAY_BUFFER, self.overlaycffsetbuffer)
-            glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), None, GL_STATIC_DRAW)
-            glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), ADT.voidDataPointer(g_overlayCOffset_buffer_data), GL_STREAM_DRAW)
+        glBindBuffer(GL_ARRAY_BUFFER, self.overlaycffsetbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), None, GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), ADT.voidDataPointer(g_overlayCOffset_buffer_data), GL_STREAM_DRAW)
         
     def updateObjectBuffers(self):
+        if self.selected and self.selected.village and self.selected.village.owner == self.engine.players[1]:
+            self.villageOverlays[self.selected.village].update("w:"+str(self.selected.village.wood)+"  g:"+str(self.selected.village.gold))
+        for v in self.engine.players[1].villages:
+            if v not in self.villageOverlays:
+                self.villageOverlay[v] = Overlay(v.hex.centre[0], v.hex.centre[1]+.05, 0.2, 0.025, "w:"+str(v.wood)+"  g:"+str(v.gold), 0.015, [0.8,0.8,0.8,0.5])
+
+        temp = []
+        for v in self.villageOverlays.keys():
+            if v not in self.engine.players[1].villages:
+                temp.append(v)
+        for v in temp:
+            del self.villageOverlays[v]     
         offset_array = [village.hex.centre for player in self.engine.players.values() for village in player.villages]+[unit.hex.centre for player in self.engine.players.values() for village in player.villages for unit in  village.units]
         self.nObjects = len(offset_array)
         offset_data =  np.array(offset_array, dtype=np.float32)
-        texOff_data = np.array([[3/self.spriteSheetCuts[0],0] for player in self.engine.players.values() for village in player.villages]+[[3/self.spriteSheetCuts[0],1/self.spriteSheetCuts[1]] for player in self.engine.players.values() for village in player.villages for unit in  village.units], dtype=np.float32)
+        texOff_data = np.array([[0,0] for player in self.engine.players.values() for village in player.villages]+[[unit.type/self.spriteSheetCuts[0],2/self.spriteSheetCuts[1]] for player in self.engine.players.values() for village in player.villages for unit in  village.units], dtype=np.float32)
 
         glBindBuffer(GL_ARRAY_BUFFER, self.unitUVoffsetbuffer)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(texOff_data), None, GL_STATIC_DRAW)
@@ -568,6 +616,7 @@ class Gui:
 
     def run(self):
         while self.running:
+            clickEvent = False
             for event in pygame.event.get():
                 if event.type == QUIT or (event.type == KEYUP and event.key == K_ESCAPE):
                     pygame.quit()
@@ -584,20 +633,33 @@ class Gui:
                     elif event.button == 1:
                         self.mouseDown = True
                     elif event.button == 3:
-                        click = self.convertPoint(pygame.mouse.get_pos())
-                        if self.selected:
-                            n = self.engine.grid.land.index(self.selected)
-                            g = self.engine.grid.land[n]
-                            self.overlaycolors[n] = [0.6118, .0118, 0.2824, 0] if g.owner==1 else ([0.0314, 0.5882, 0.651, 0] if g.owner ==2 else ([0, 0.0196, 0.302,0] if g.owner == 3 else ([.8098,0.3784, 0.0196,0] if g.owner == 4 else [0,0,0,-.6])))
-                        for h in self.engine.grid.land:
-                            if self.inCircle((h.centre), click, .09):
-                                self.selected = h
-                                self.overlaycolors[self.engine.grid.land.index(self.selected)] = [1,0,0,0]
-                                break
+                        clickEvent = True
+                        if self.selected and self.selected.occupant:
+                            clicked = None
+                            click = self.convertPoint(pygame.mouse.get_pos())
+                            for h in self.engine.grid.land:
+                                if self.inCircle((h.centre), click, .09):
+                                    clicked = h
+                                    break
+                            if clicked:
+                                if self.engine.moveUnit(clicked, self.selected.occupant):
+                                    self.selected = clicked
                 elif event.type == MOUSEBUTTONUP:
+                    clickEvent = True
                     if event.button == 1:
                         self.mouseDown = False
-                        self.ui.click(self.convertStaticPoint(pygame.mouse.get_pos()))
+                        buttonClick = self.ui.click(self.convertStaticPoint(pygame.mouse.get_pos()))
+                        if not buttonClick:
+                            click = self.convertPoint(pygame.mouse.get_pos())
+                            if self.selected:
+                                n = self.engine.grid.land.index(self.selected)
+                                g = self.engine.grid.land[n]
+                                self.overlaycolors[n] = [0.6118, .0118, 0.2824, 0] if g.owner==1 else ([0.0314, 0.5882, 0.651, 0] if g.owner ==2 else ([0, 0.0196, 0.302,0] if g.owner == 3 else ([.8098,0.3784, 0.0196,0] if g.owner == 4 else [0,0,0,-.6])))
+                            for h in self.engine.grid.land:
+                                if self.inCircle((h.centre), click, .09):
+                                    self.selected = h
+                                    self.overlaycolors[self.engine.grid.land.index(self.selected)] = [1,0,0,0]
+                                    break
                 elif event.type == MOUSEMOTION and self.mouseDown:
                     rel = event.rel
                     self.trans[0] += rel[0]*.003/self.zoom
@@ -611,12 +673,14 @@ class Gui:
                 glUniform1f(self.zoomloc,self.zoom)
                 glLineWidth(4*self.zoom)
                 
-                self.updateGridBuffers()
-                self.updateObjectBuffers()
+                if clickEvent:
+                    self.updateGridBuffers()
+                    self.updateObjectBuffers()
                 self.drawMap()
                 if self.selected and self.selected.village and self.selected.owner == 1:
-                    for o in self.villageOverlays:
-                        o.draw()
+                    self.villageOverlays[self.selected.village].draw()
+                   # for o in self.villageOverlays.values():
+                        #o.draw()
                 
                 glUniform2f(self.transloc,0,0)
                 glUniform1f(self.zoomloc,1)
@@ -624,7 +688,7 @@ class Gui:
                 if self.selected:
                     if self.selected.occupant:
                         self.ui.drawUnitUI()
-                    elif self.selected.village and self.selected.owner == 1:
+                    elif self.selected.village:
                         self.ui.drawVillageUI()
                     elif self.selected.owner == 0:
                         self.ui.drawHexUI()
