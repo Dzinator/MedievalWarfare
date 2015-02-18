@@ -1,11 +1,11 @@
 import socket
-import pickle
 import time
 import unittest
+import sys
 
-from clientMessage import *
-from server import SERVER_ADDR
-from mockClient import send_to_server, recv_from_server
+from Networking.Shared.message import ClientLogin, ChatMessage
+from Networking.Server.server import SERVER_ADDR
+from Networking.ClientAgent.mockClient import send_to_server, recv_from_server
 
 
 class testServer(unittest.TestCase):
@@ -24,13 +24,12 @@ class testServer(unittest.TestCase):
         Juliet = socket.socket()
         Juliet.connect(SERVER_ADDR)
         loginM = ClientLogin("Juliet")
-        pLoginM = pickle.dumps(loginM)
-        send_to_server(Juliet, pLoginM)
+        send_to_server(Juliet, loginM)
         Juliet.close()
         # reconnect and re-login
         Juliet = socket.socket()
         Juliet.connect(SERVER_ADDR)
-        send_to_server(Juliet, pLoginM)
+        send_to_server(Juliet, loginM)
         Juliet.close()
 
     def testChat(self):
@@ -38,19 +37,17 @@ class testServer(unittest.TestCase):
         # client
         Romeo = socket.socket()
         Romeo.connect(SERVER_ADDR)
-        send_to_server(Romeo, pickle.dumps(ClientLogin("Romeo")))
+        send_to_server(Romeo, ClientLogin("Romeo"))
 
         # another client
         Juliet = socket.socket()
         Juliet.connect(SERVER_ADDR)
-        send_to_server(Juliet, pickle.dumps(ClientLogin("Juliet")))
+        send_to_server(Juliet, ClientLogin("Juliet"))
 
         time.sleep(1) # wait for Juliet to finish log in before sending her msg
         chatM = ChatMessage("Romeo", msg)
-        pChatM = pickle.dumps(chatM)
-        send_to_server(Romeo, pChatM)
-        pReceivedM = recv_from_server(Juliet)
-        receivedM = pickle.loads(pReceivedM)
+        send_to_server(Romeo, chatM)
+        receivedM = recv_from_server(Juliet)
         assert(receivedM.sender == "Romeo")
         assert(receivedM.message == msg)
         Juliet.close()

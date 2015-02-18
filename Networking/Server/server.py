@@ -10,10 +10,12 @@ import sys
 import pickle
 import threading
 
+from Networking.Shared.message import ClientLogin, JoinRoom, CreateRoom, \
+    ReadyForGame, LeaveRoom, ChangeMap, TurnData, LeaveGame, ChatMessage
+
 
 
 # initialize logging
-import clientMessage
 
 logging.basicConfig(level="INFO",
                     format='%(asctime)s(%(threadName)-10s)[%(levelname)s] '
@@ -49,7 +51,7 @@ class ClientSocket(threading.Thread):
         pickle the message
         calculating the size of message
         and make sure the entire message is delivered.
-        :type message: clientMessage.BaseClientMessage
+        :type message: BaseClientMessage
         """
         try:
             logger.info("sending message to {}".format(self.username))
@@ -69,51 +71,53 @@ class ClientSocket(threading.Thread):
             self.close()
         return
 
+    # ----START HELPER FUNCTION----
+    def receive_len_header(self, sock):
+        """
+        return then length of the message
+        return 0 if connection broken
+        :rtype : int
+        """
+        buf = b''
+        while not buf.endswith(b'\n'):
+            temp_buf = sock.recv(1)
+            if len(temp_buf) == 0:  # client disconnected
+                return 0
+            buf += temp_buf
+        length = int(buf)
+        logger.debug("message length should be {}".format(length))
+        return length
+
+    def recv_real_message(self, sock, length):
+        """
+        receive data until size of length reached
+        :rtype : BaseClientMessage
+        :type socket.socket
+        :type length: int
+        """
+        buf = b''
+        while length != len(buf):
+            temp_buf = sock.recv(length)
+            if len(temp_buf) == 0:  # client disconnected
+                return b''
+            buf += temp_buf
+        return buf
+
+    # ----END HELPER FUNCTION----
+
+
     def recv(self):
         """
         wrap recv method to provide additional features:
         unpickle the message
         and make sure receive one and only one message
-        :rtype : clientMessage.BaseClientMessage
+        :rtype : BaseClientMessage
         """
 
-        # ----START HELPER FUNCTION----
-        def receive_len_header(sock):
-            """
-            return then length of the message
-            return 0 if connection broken
-            :rtype : int
-            """
-            buf = b''
-            while not buf.endswith(b'\n'):
-                temp_buf = sock.recv(1)
-                if len(temp_buf) == 0:  # client disconnected
-                    return 0
-                buf += temp_buf
-            length = int(buf)
-            logger.debug("message length should be {}".format(length))
-            return length
-
-        def recv_real_message(sock, length):
-            """
-            receive data until size of length reached
-            :rtype : clientMessage.BaseClientMessage
-            :type socket.socket
-            :type length: int
-            """
-            buf = b''
-            while length != len(buf):
-                temp_buf = sock.recv(length)
-                if len(temp_buf) == 0:  # client disconnected
-                    return b''
-                buf += temp_buf
-            return buf
-
-        # ----END HELPER FUNCTION----
-
         try:
-            message_len = receive_len_header(self.socket)
-            new_pmsg = recv_real_message(self.socket, message_len)  # pickled
+            message_len = self.receive_len_header(self.socket)
+            new_pmsg = self.recv_real_message(self.socket,
+                                              message_len)  # pickled
         except OSError as ose:  # connection dropped lead to exception
             return None
         if new_pmsg:  # received message successfully
@@ -206,19 +210,19 @@ class ClientSocket(threading.Thread):
     def handle_message(self, msg):
         """
         verify and dispatch messages to different handler
-        :type msg: clientMessage.BaseClientMessage
+        :type msg: BaseClientMessage
         """
         dispatcher = {
             # a mapping of clientMessage classes to handler functions
-            clientMessage.ClientLogin.__name__: self.handle_login,
-            clientMessage.JoinRoom.__name__: self.handle_joinroom,
-            clientMessage.CreateRoom.__name__: self.handle_createroom,
-            clientMessage.ReadyForGame.__name__: self.handle_readyforgame,
-            clientMessage.LeaveRoom.__name__: self.handle_leaveroom,
-            clientMessage.ChangeMap.__name__: self.handle_changemap,
-            clientMessage.TurnData.__name__: self.handle_turndata,
-            clientMessage.LeaveGame.__name__: self.handle_leavegame,
-            clientMessage.ChatMessage.__name__: self.handle_chat_message,
+            ClientLogin.__name__: self.handle_login,
+            JoinRoom.__name__: self.handle_joinroom,
+            CreateRoom.__name__: self.handle_createroom,
+            ReadyForGame.__name__: self.handle_readyforgame,
+            LeaveRoom.__name__: self.handle_leaveroom,
+            ChangeMap.__name__: self.handle_changemap,
+            TurnData.__name__: self.handle_turndata,
+            LeaveGame.__name__: self.handle_leavegame,
+            ChatMessage.__name__: self.handle_chat_message,
         }
         try:
             # todo special treatment for login message
@@ -265,6 +269,9 @@ class ClientSocket(threading.Thread):
                 # handle message could be slow depending on message size
                 # we will not thread this for now
                 self.handle_message(new_msg)
+            else:
+                # assume the connection is broken
+                self.close()
 
 
 class Server():
@@ -329,9 +336,9 @@ class Server():
             new_client = ClientSocket(new_client_socket, self)
             self.clients[new_client_socket] = new_client
             self.all_connections.append(new_client_socket)
-            new_client.start()
             logger.info("new client connected {}"
                         .format(self.clients[new_client_socket].socket_addr))
+            new_client.start()
 
     def summary(self):
         logger.info("Summary: clients still connected: {}"
