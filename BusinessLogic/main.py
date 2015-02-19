@@ -1,5 +1,5 @@
 from GUI import Gui
-import math, random
+import math, random, heapq
 
 class Player:
     def __init__(self, Id, name, number):
@@ -39,11 +39,13 @@ class Village:
         if self.gold >=Unit.costs[t]:
             self.units.append(Unit(t,h,self))
             self.gold-=Unit.costs[t]
+            if h.hasTree:
+                self.units[-1].gatherWood()
 
     def upgrade(self):
-        if self.type<2 and self.wood>=5:
+        if self.type<2 and self.wood>=8:
             self.type+=1
-            self.wood-=5
+            self.wood-=8
 
     def addVillage(self, v):
         self.gold+= v.gold
@@ -55,10 +57,43 @@ class Village:
             self.units.append(u)
             u.village = self
 
+    def canCombinetoInfantry(self, unit1, unit2):
+        if not unit2 or not unit1:
+            return False
+        return (unit1 in self.units and unit2 in self.units and unit1.type == unit2.type == 0)
+
+    def canCombinetoSoldier(self, unit1, unit2):
+        if not unit2 or not unit1:
+            return False
+        return (self.type>0 and unit1 in self.units and unit2 in self.units and ((unit1.type == 1 and unit2.type ==0) or (unit1.type == 0 and unit2.type ==1)))
+
+    def canCombinetoKnight(self, unit1, unit2):
+        if not unit2 or not unit1:
+            return False
+        return (self.type>1 and unit1 in self.units and unit2 in self.units and (((unit1.type == 2 and unit2.type ==0) or (unit1.type == 0 and unit2.type ==2)) or (unit1.type == unit2.type == 1)))
+
+    def combine(self,unit1, unit2):
+        if not unit2 or not unit1:
+            return False
+        if self.canCombinetoInfantry(unit1,unit2):
+            unit1.type=1
+            unit2.hex.occupant = None
+            self.units.remove(unit2)
+            del unit2
+        elif self.canCombinetoSoldier(unit1,unit2):
+            unit1.type=2
+            unit2.hex.occupant = None
+            self.units.remove(unit2)
+            del unit2
+        elif self.canCombinetoKnight(unit1,unit2):
+            unit1.type=3
+            unit2.hex.occupant = None
+            self.units.remove(unit2)
+            del unit2
+
 class Unit:
     upkeeps = {0 : 2, 1:6, 2: 18, 3:54}
     costs = {0:10,1:20,2:30,3:40}
-    upgradeCosts = {}
     def __init__(self, ut, h, v):
         self.type = ut
         self.currentAction = 'ready'
@@ -74,8 +109,8 @@ class Unit:
     def setBuildingRoad(self):
         pass
 
-    def upgradePrice(self, newLevel):
-        return
+    def getUpkeep(self):
+        return upkeeps[self.type]
 
     def buildRoad(self):
         self.hex.putRoad()
@@ -108,6 +143,7 @@ class Hex:
         self.hasTree = True if random.random()<.2 and not self.water else False 
         self.hasMeadow = True if not self.hasTree and not self.water and random.random()<.1 else False
         self.neighbours = []
+        self.parent = None
         self.owner = random.randint(1,4) if not self.water else 0
 
     def removeTomb(self):
@@ -140,8 +176,9 @@ class Hex:
         self.hasMeadow = False
 
 class Grid:
-    def __init__(self, mapId, width, height):
+    def __init__(self, mapId, width, height, engine, mapInfo = None):
         self.Id = mapId
+        self.engine = engine
         self.tn = 0
         self.sp = .09
         self.d = self.sp/1.05
@@ -177,6 +214,33 @@ class Grid:
                     unchecked.add(node)
         return nodes
 
+    def Astar(self, start, target):
+        path, unchecked, checked, start.parent = [],[],[],None
+        heapq.heappush(unchecked,(abs(start.centre[0]-target.centre[0])+abs(start.centre[1]-target.centre[1]),0, start.number, start))
+        while len(unchecked)>0:
+            best = heapq.heappop(unchecked)
+            checked.append(best)   
+            if best[3] == target:
+                break
+            if best[3].owner == start.owner and not best[3].hasTree:
+                for node in best[3].neighbours:
+                    if not any([node == item[3] for item in checked]) and not any([node == item[3] for item in unchecked]) and not node.occupant and not (start.occupant.type ==3 and node.hasTree) and not (node.village == start.village and node.village and node.village.hex == node):
+                        node.parent = best
+                        heapq.heappush(unchecked,((abs(node.centre[0]-target.centre[0])
+                                                  +abs(node.centre[1]-target.centre[1])
+                                                  +(best[1]))*(100 if start.occupant.type>1 and node.hasMeadow else 1),
+                                                  best[1]+abs(node.centre[0]-best[3].centre[0])
+                                                  +abs(node.centre[1]-best[3].centre[1]) ,node.number, node))
+        if len(unchecked)==0:
+            return []
+        if best[3].owner == start.owner or self.engine.canCapture(best[3], start.occupant):
+            path.append(best[3])
+        while(best[3].parent):
+            best = best[3].parent
+            path.append(best[3])
+        path.reverse()
+        return path
+
 class Engine:
     def __init__(self, Id):
         self.gameId = Id
@@ -185,7 +249,7 @@ class Engine:
         self.initPlayers()
         self.width = 1600
         self.height = 900
-        self.grid = Grid(1, self.width, self.height)
+        self.grid = Grid(1, self.width, self.height, self)
         self.grid.populateMap(self.players)
         self.Gui = Gui(self, self.width, self.height)
     
@@ -196,11 +260,13 @@ class Engine:
         pass
 
     def canCapture(self, h, unit):
+        if not h.village:
+            return True
         if unit.type==0:
             return False
         if unit.type == 1 and h.village.hex == h:
             return False
-        if (h.occupant and h.occupant.type>unit.type) or (h.hasWatchTower and unit.type==1):
+        if (h.occupant and h.occupant.type>unit.type) or (h.hasWatchTower and unit.type==1) or (h.village.type ==2 and h==h.village.hex and unit.type<3):
                 return False
         for g in h.neighbours:
             if(g.occupant and g.occupant.type>unit.type and g.village.owner == h.village.owner) or (g.hasWatchTower and unit.type==1 and g.village.owner == h.village.owner) or (h.village.type ==2 and g==h.village.hex and unit.type<3):
@@ -264,10 +330,19 @@ class Engine:
                 unit.village.wood += h.village.wood
                 h.hasMeadow = True
             del h.village
+
+    def movePath(self, h, unit):
+        path = self.grid.Astar(unit.hex, h)
+        if unit.type>=2:
+            for h in path[1:]:
+                if h.hasMeadow and not h.hasRoad:
+                    h.trample()
+
+        return self.moveUnit(h, unit)
                     
     def moveUnit(self, h, unit):
         ret = False
-        if h not in unit.hex.neighbours or unit.moved:
+        if unit.moved:
             return False
         if h.hasTree and unit.type == 3:
             return False
@@ -294,19 +369,47 @@ class Engine:
             h.village = unit.village
             h.owner = unit.village.hex.owner
             h.occupant = unit
+            h.hasWatchTower = False
             ret = True
         if h.hasTree and unit.type<3:
             unit.gatherWood()
         if h.hasTombstone and unit.type<3:
             h.removeTomb()
-        if h.hasMeadow and not h.hasRoad and unit.type>1:
-            h.trample()
         return ret
     def newGame(self, players, mapData):
         pass
 
-    def beginTurn(self, player): #player or turn?
+    def tombPhase(self, player):
+        for v in player.villages:
+            for t in v.territory:
+                t.removeTombstone()
+                t.putTree()
+
+    def buildPhase(self,player):
         pass
+
+    def incomePhase(self,player):
+        for v in player.villages:
+            v.gold += sum(t.getIncome() for t in v.territory)
+
+    def paymentPhase(self, player):
+        for v in player.villages:
+            v.gold -= sum(u.getUpkeep() for u in v.units)
+
+    def beginTurn(self, player): #player or turn?
+        #recieve data beforehand
+        self.tombPhase(player)
+        self.buildPhase(player)
+        self.incomePhase(player)
+        self.paymentPhase(player)
+        for v in player.villages:
+            for u in v.units:
+                u.moved = False
+        self.turn = True
+
+    def endTurn(self):
+        self.turn = False
+        #sen data
 
     def run(self):
         self.Gui.run()
