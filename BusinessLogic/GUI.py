@@ -270,12 +270,15 @@ class Path:
 
 class UI:
     def __init__(self, gui):
+        self.shift = -1.7
         self.visible = 0
         self.gui = gui
         self.unitButtons = []
+        self.unitButtons.append(Button(0,-.9,.22,.03, lambda: self.gui.selected.occupant.setBuildingMeadow(),lambda: True if self.gui.selected.occupant.type<3 and not self.gui.selected.hasMeadow and not self.gui.selected.occupant.moved else False, "build meadow"))
+        self.unitButtons.append(Button(0,-.9,.22,.03, lambda: self.gui.selected.occupant.setBuildingRoad(),lambda: True if self.gui.selected.occupant.type<3 and not self.gui.selected.hasRoad and not self.gui.selected.occupant.moved else False, "build road"))
         self.unitButtons.append(Button(0,-.9,.22,.03, lambda: self.gui.selected.occupant.upgrade(1),lambda: True if self.gui.selected.occupant.type<1 else False, "upgrade infantry"))
         self.unitButtons.append(Button(0,-.9,.22,.03, lambda: self.gui.selected.occupant.upgrade(2),lambda: True if self.gui.selected.occupant.type<2 and self.gui.selected.village.type >0 else False, "upgrade soldier"))
-        self.unitButtons.append(Button(0,-.9,.22,.03, lambda: self.gui.selected.occupant.upgrade(3), lambda: True if self.gui.selected.occupant.type<3 and self.gui.selected.village.type >1 else False, "upgrade knight"))
+        self.unitButtons.append(Button(0,-.9,.22,.03, lambda: self.gui.selected.occupant.upgrade(3), lambda: True if self.gui.selected.occupant.type<3 and self.gui.selected.village.type >1 and not self.gui.selected.occupant.action else False, "upgrade knight"))
         self.unitButtons.append(Button(0,-.9,.2,.03, lambda: self.gui.selected.buildWatchTower(),lambda: True if self.gui.selected.village.wood>=5 and self.gui.selected.village.type >0 and not self.gui.selected.hasWatchTower else False, "build tower"))
         self.villageButtons = []
         self.hexButtons = []
@@ -297,28 +300,28 @@ class UI:
         self.endButton = Button(1.5,-.9,.2,.03, lambda: self.gui.engine.endTurn(), lambda: True, "end turn", 0.015)
 
     def click(self, p):
-        t = -1.4
+        t = self.shift
         if self.visible ==1:
             for b in self.hexButtons:
-                if b.click(p,t):
+                if b.click(p,t+b.w):
                     return True
                 if b.fdraw():
                     t+=2*b.w+.1
         elif self.visible ==2:
             for b in self.unitButtons:
-                if b.click(p, t):
+                if b.click(p, t+b.w):
                     return True
                 if b.fdraw():
                     t+=2*b.w+.1
         elif self.visible ==3:
             for b in self.villageButtons:
-                if b.click(p,t):
+                if b.click(p,t+b.w):
                     return True
                 if b.fdraw():
                     t+=2*b.w+.1
         elif self.visible == 4:
             for b in self.combineButtons:
-                if b.click(p,t):
+                if b.click(p,t+b.w):
                     return True
                 if b.fdraw():
                     t+=2*b.w+.1
@@ -329,33 +332,33 @@ class UI:
 
     def drawHexUI(self):
         self.visible = 1
-        t=-1.4
+        t=self.shift
         for b in self.hexButtons:
-            glUniform2f(self.gui.transloc,t,0)
+            glUniform2f(self.gui.transloc,t+b.w,0)
             if b.draw():
                 t+= 2*b.w+.1
 
     def drawUnitUI(self):
         self.visible = 2
-        t=-1.4
+        t=self.shift
         for b in self.unitButtons:
-            glUniform2f(self.gui.transloc,t,0)
+            glUniform2f(self.gui.transloc,t+b.w,0)
             if b.draw():
                 t+= 2*b.w+.1
 
     def drawVillageUI(self):
         self.visible = 3
-        t=-1.4
+        t=self.shift
         for b in self.villageButtons:
-            glUniform2f(self.gui.transloc,t,0)
+            glUniform2f(self.gui.transloc,t+b.w,0)
             if b.draw():
                 t+= 2*b.w+.1
 
     def drawCombine(self):
         self.visible = 4
-        t=-1.4
+        t=self.shift
         for b in self.combineButtons:
-            glUniform2f(self.gui.transloc,t,0)
+            glUniform2f(self.gui.transloc,t+b.w,0)
             if b.draw():
                 t+= 2*b.w+.1
 

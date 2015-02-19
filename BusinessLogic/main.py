@@ -94,6 +94,7 @@ class Village:
 class Unit:
     upkeeps = {0 : 2, 1:6, 2: 18, 3:54}
     costs = {0:10,1:20,2:30,3:40}
+    actions = {"building road": 1, "building meadow1": 2, "building meadow2":3}
     def __init__(self, ut, h, v):
         self.type = ut
         self.currentAction = 'ready'
@@ -101,23 +102,37 @@ class Unit:
         self.hex = h
         self.village = v
         self.moved = False
+        self.action = 0
         h.occupant = self
 
     def update(self):
-        pass
+        if self.action == self.actions["building road"]:
+            self.action = 0
+            self.hex.putRoad()
+            self.moved = False
+        elif self.action == self.actions["building meadow1"]:
+            self.action = self.actions["building meadow2"]
+            self.moved = True
+        elif self.action == self.actions["building meadow2"]:
+            self.action = 0
+            self.hex.putMeadow()
+            self.moved = False
+        else:
+            self.moved = False
 
     def setBuildingRoad(self):
-        pass
+        self.action = self.actions["building road"]
+        self.moved = True
+
+    def setBuildingMeadow(self):
+        self.action = self.actions["building meadow1"]
+        self.moved = True
 
     def getUpkeep(self):
-        return upkeeps[self.type]
+        return self.upkeeps[self.type]
 
     def buildRoad(self):
         self.hex.putRoad()
-
-    def buildMeadow(self):
-        self.hex.hasMeadow = True
-        self.moved = True
 
     def upgrade(self, newLevel):
         if 4>newLevel>self.type<3 and self.village.gold>=10*(newLevel-self.type):
@@ -162,6 +177,10 @@ class Hex:
 
     def removeTree(self):
         self.hasTree = False
+
+    def putMeadow(self):
+        self.hasTree = False
+        self.hasMeadow = True
 
     def getIncome(self):
         return 0 if self.hasTree else (2 if self.hasMeadow else 1)
@@ -222,7 +241,7 @@ class Grid:
             checked.append(best)   
             if best[3] == target:
                 break
-            if best[3].owner == start.owner and not best[3].hasTree:
+            if best[3].owner == start.owner and not best[3].hasTree and not best[3].hasTombstone:
                 for node in best[3].neighbours:
                     if not any([node == item[3] for item in checked]) and not any([node == item[3] for item in unchecked]) and not node.occupant and not (start.occupant.type ==3 and node.hasTree) and not (node.village == start.village and node.village and node.village.hex == node):
                         node.parent = best
@@ -283,7 +302,7 @@ class Engine:
             joinVillages.remove(main)
             for v in joinVillages:
                 main.addVillage(v)
-                v.hex.hasMeadow = True
+                v.hex.putMeadow()
                 main.owner.villages.remove(v)
             del list(joinVillages)[:]
 
@@ -328,7 +347,7 @@ class Engine:
             if h.village.hex == h:
                 unit.village.gold += h.village.gold
                 unit.village.wood += h.village.wood
-                h.hasMeadow = True
+                h.putMeadow()
             del h.village
 
     def movePath(self, h, unit):
@@ -337,11 +356,11 @@ class Engine:
             for h in path[1:]:
                 if h.hasMeadow and not h.hasRoad:
                     h.trample()
-
         return self.moveUnit(h, unit)
                     
     def moveUnit(self, h, unit):
         ret = False
+        captured = False
         if unit.moved:
             return False
         if h.hasTree and unit.type == 3:
@@ -360,6 +379,7 @@ class Engine:
             h.owner = unit.village.hex.owner
             h.occupant = unit
             ret = True
+            captured = True
         elif self.canCapture(h, unit):
             self.join(h,unit)
             self.splitTerritory(h,unit)
@@ -371,10 +391,14 @@ class Engine:
             h.occupant = unit
             h.hasWatchTower = False
             ret = True
-        if h.hasTree and unit.type<3:
-            unit.gatherWood()
-        if h.hasTombstone and unit.type<3:
-            h.removeTomb()
+            captured = True
+        if ret:
+            if h.hasTree and unit.type<3:
+                unit.gatherWood()
+            if h.hasTombstone and unit.type<3:
+                h.removeTomb()
+            unit.moved = captured
+
         return ret
     def newGame(self, players, mapData):
         pass
@@ -382,8 +406,9 @@ class Engine:
     def tombPhase(self, player):
         for v in player.villages:
             for t in v.territory:
-                t.removeTombstone()
-                t.putTree()
+                if t.hasTombstone:
+                    t.removeTomb()
+                    t.putTree()
 
     def buildPhase(self,player):
         pass
@@ -404,12 +429,14 @@ class Engine:
         self.paymentPhase(player)
         for v in player.villages:
             for u in v.units:
-                u.moved = False
+                u.update()
         self.turn = True
 
     def endTurn(self):
         self.turn = False
         #sen data
+
+        self.beginTurn(self.players[1])
 
     def run(self):
         self.Gui.run()
