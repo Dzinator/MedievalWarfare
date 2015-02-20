@@ -1,4 +1,4 @@
-import pygame, sys,math,  numpy as np, OpenGL.arrays.vbo as glvbo, threading, os
+import pygame, sys,math,  numpy as np, OpenGL.arrays.vbo as glvbo, threading, os, sys, pickle
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.raw import GL as g
@@ -6,6 +6,8 @@ from OpenGL.GL import shaders
 from OpenGL.GLU import *
 from ctypes import util
 from OpenGL.arrays import ArrayDatatype as ADT
+from tkinter import Tk
+from tkinter import filedialog
 
 class Text:
     a = 0.125
@@ -272,6 +274,7 @@ class UI:
     def __init__(self, gui):
         self.shift = -1.7
         self.visible = 0
+        self.showMenu = False
         self.gui = gui
         self.unitButtons = []
         self.unitButtons.append(Button(0,-.9,.22,.03, lambda: self.gui.selected.occupant.setBuildingMeadow(),lambda: True if self.gui.selected.occupant.type<3 and not self.gui.selected.hasMeadow and not self.gui.selected.occupant.moved else False, "build meadow"))
@@ -296,6 +299,10 @@ class UI:
         self.combineButtons.append(Button(0,-.9,.2,.03, lambda: self.gui.selected.village.combine(self.gui.selected.occupant, self.gui.combiner.occupant),lambda: True if self.gui.selected and self.gui.combiner and self.gui.selected.village.canCombinetoSoldier(self.gui.selected.occupant, self.gui.combiner.occupant) else False , "combine to soldier"))     
         self.combineButtons.append(Button(0,-.9,.2,.03, lambda: self.gui.selected.village.combine(self.gui.selected.occupant, self.gui.combiner.occupant),lambda: True if self.gui.selected and self.gui.combiner and self.gui.selected.village.canCombinetoKnight(self.gui.selected.occupant, self.gui.combiner.occupant)  else False, "combine to knight"))
         #self.villageButtons.append(Button(-1.1,-.9,.18,.03, lambda: setattr(self.gui, 'show', not self.gui.show), "territories"))
+        self.menuButtons = []
+        self.menuButtons.append(Button(0,0.2,.2,.03, lambda: self.gui.save(),lambda: True , "save game"))
+        self.menuButtons.append(Button(0,0,.2,.03, lambda: self.gui.load(),lambda: True , "load game"))
+        self.menuButtons.append(Button(0,-.2,.2,.03, lambda: pygame.quit() or setattr(self.gui, 'running', False),lambda: True , "exit game"))
 
         self.endButton = Button(1.5,-.9,.2,.03, lambda: self.gui.engine.endTurn(), lambda: True, "end turn", 0.015)
 
@@ -325,6 +332,11 @@ class UI:
                     return True
                 if b.fdraw():
                     t+=2*b.w+.1
+
+        if self.showMenu:
+            for b in self.menuButtons:
+                if b.click(p,0):
+                    return True
         
         if self.endButton.click(p,0):
             return True
@@ -362,6 +374,10 @@ class UI:
             if b.draw():
                 t+= 2*b.w+.1
 
+    def drawMenu(self):
+        for b in self.menuButtons:
+            b.draw()
+
     def drawNone(self):
         self.visible = 0
 
@@ -383,7 +399,7 @@ class Overlay(Element):
 
 class Gui:
     def __init__(self, engine, width, height):
-        
+        sys.setrecursionlimit(10000)
         self.height = height
         self.width = width
         self.engine = engine
@@ -624,6 +640,12 @@ class Gui:
         glBindBuffer(GL_ARRAY_BUFFER, self.unitcoloroffbuffer)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(color_off_data), ADT.voidDataPointer(color_off_data), GL_STATIC_DRAW)
 
+    def loadGridBuffers(self):
+        g_overlayOffset_buffer_data = np.array([h.centre for h in self.engine.grid.land], dtype=np.float32)
+        glBindBuffer(GL_ARRAY_BUFFER, self.overlayoffsetbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayOffset_buffer_data), None, GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayOffset_buffer_data), ADT.voidDataPointer(g_overlayOffset_buffer_data), GL_STATIC_DRAW)
+
     def updateGridBuffers(self):
         #needs change
         #n = self.engine.grid.hexes.index(self.selected)
@@ -639,6 +661,7 @@ class Gui:
                                          else ([0, 0.0196, 0.302,0] if h.owner == 3 
                                                else ([.8098,0.3784, 0.0196,0] if h.owner == 4 
                                                      else [0,0,0,-.6]))))  for h in self.engine.grid.land]
+
         g_UVoffset_buffer_data = np.array(self.gridUVoffsets, dtype=np.float32)
         g_overlayCOffset_buffer_data = np.array(self.overlaycolors, dtype=np.float32)
 
@@ -655,7 +678,7 @@ class Gui:
             self.villageOverlays[self.selected.village].update("w:"+str(self.selected.village.wood)+"  g:"+str(self.selected.village.gold))
         for v in self.engine.players[1].villages:
             if v not in self.villageOverlays:
-                self.villageOverlay[v] = Overlay(v.hex.centre[0], v.hex.centre[1]+.05, 0.2, 0.025, "w:"+str(v.wood)+"  g:"+str(v.gold), 0.015, [0.8,0.8,0.8,0.5])
+                self.villageOverlays[v] = Overlay(v.hex.centre[0], v.hex.centre[1]+.05, 0.2, 0.025, "w:"+str(v.wood)+"  g:"+str(v.gold), 0.015, [0.8,0.8,0.8,0.5])
 
         temp = []
         for v in self.villageOverlays.keys():
@@ -752,7 +775,7 @@ class Gui:
         while self.running:
             clickEvent = False
             for event in pygame.event.get():
-                if event.type == QUIT or (event.type == KEYUP and event.key == K_ESCAPE):
+                if event.type == QUIT:
                     pygame.quit()
                     self.running = False
                 elif event.type == KEYDOWN:
@@ -760,19 +783,22 @@ class Gui:
                         ord('d') : lambda: setattr(self, 'trans', [self.trans[0]+.1,self.trans[1]]),
                         ord('w') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]+.1]),
                         ord('s') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]-.1]),
+                        ord(' ') : lambda: self.engine.endTurn(),
                         308 : lambda: setattr(self, 'altDown', True),
                         304 : lambda: setattr(self, 'shiftDown', True)
                         }.get(event.key, lambda: True)()
                 elif event.type == KEYUP:
-                    {
+                    {   K_ESCAPE : lambda : setattr(self.ui, 'showMenu', not self.ui.showMenu),
                         308 : lambda: setattr(self, 'altDown', False),
                         304 : lambda: setattr(self, 'shiftDown', False)
                         }.get(event.key, lambda: True)()
                 elif event.type == MOUSEBUTTONDOWN:
-                    if event.button == 4 or event.button == 5:
+                    if event.button == 2:
+                        self.mouseDown = True
+                    elif event.button == 4 or event.button == 5:
                         self.zoom = self.zoom/.90 if event.button == 4 else self.zoom*.90
                     elif event.button == 1:
-                        self.mouseDown = True
+                        pass
                     elif event.button == 3:
                         clickEvent = True
                         if self.selected and self.selected.occupant and not self.combiner:
@@ -789,7 +815,6 @@ class Gui:
                 elif event.type == MOUSEBUTTONUP:
                     clickEvent = True
                     if event.button == 1 and self.shiftDown:
-                        self.mouseDown = False
                         if self.selected and self.selected.occupant:
                             click = self.convertPoint(pygame.mouse.get_pos())
                             for h in self.engine.grid.land:
@@ -797,7 +822,6 @@ class Gui:
                                     self.combiner = h
                                     break
                     elif event.button == 1:
-                        self.mouseDown = False
                         buttonClick = self.ui.click(self.convertStaticPoint(pygame.mouse.get_pos()))
                         self.combiner = None
                         if not buttonClick:
@@ -806,6 +830,8 @@ class Gui:
                                 if self.inCircle((h.centre), click, .09) and h.owner:
                                     self.selected = h
                                     break
+                    elif event.button == 2:
+                        self.mouseDown = False
                 elif event.type == MOUSEMOTION:
                     if self.mouseDown:
                         rel = event.rel
@@ -845,6 +871,8 @@ class Gui:
                 glUniform1f(self.zoomloc,1)
                 
                 self.ui.endButton.draw()
+                if self.ui.showMenu:
+                    self.ui.drawMenu()
                 if self.selected:
                     if self.selected.occupant and self.combiner and self.combiner.occupant:
                         self.ui.drawCombine()
@@ -859,6 +887,7 @@ class Gui:
                 
                 self.mainClock.tick(30)
                 pygame.display.flip()
+            
 
     def inCircle(self,p1,p2,r):
         return math.sqrt(pow(p1[0]-p2[0],2)+pow(p1[1]-p2[1],2))<r
@@ -885,3 +914,28 @@ class Gui:
         except:
             print ("can't open the texture: %s"%(texture))
         return texID
+
+    def save(self):
+        Tk().withdraw()
+        filename = filedialog.asksaveasfilename(initialdir="saves")
+        if filename:
+            with open(filename, 'wb') as f:
+                pickle.dump(self.engine,f)
+            print("saved")
+
+    def load(self):
+        Tk().withdraw()
+        filename = filedialog.askopenfilename(initialdir="saves")
+        if filename:
+            with open(filename, 'rb') as f:
+                self.engine = pickle.load(f)
+
+            self.selected = None
+            self.combiner = None
+            self.ui.visible = 0
+
+            self.villageOverlays = {v : Overlay(v.hex.centre[0], v.hex.centre[1]+.05, 0.2, 0.025, "w:"+str(v.wood)+"  g:"+str(v.gold), 0.015, [0.8,0.8,0.8,0.5]) for v in self.engine.players[1].villages}
+            self.loadGridBuffers()
+            self.updateGridBuffers()
+            self.updateObjectBuffers()
+            print("loaded")

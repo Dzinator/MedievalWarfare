@@ -1,5 +1,5 @@
 from GUI import Gui
-import math, random, heapq
+import math, random, heapq, pickle
 
 class Player:
     def __init__(self, Id, name, number):
@@ -17,6 +17,7 @@ class Village:
         self.gold = 100
         self.wood = 10
         self.hex = h
+        self.hex.removeTree()
         self.units = []
         self.owner = p
         self.territory = t
@@ -142,9 +143,14 @@ class Unit:
     def gatherWood(self):
         self.village.wood+=1
         self.hex.removeTree()
+        self.moved = True
+
+    def removeTombstone(self):
+        self.hex.removeTombstone()
+        self.moved = True
 
 class Hex:
-    def __init__(self, x, y, d, s,n, p = True):
+    def __init__(self, x, y, d, s,n, p):
         self.place = (x,y)
         self.centre = [x+d/2, y+d*math.sin(math.pi/3)]
         self.hasRoad = False
@@ -159,7 +165,7 @@ class Hex:
         self.hasMeadow = True if not self.hasTree and not self.water and random.random()<.1 else False
         self.neighbours = []
         self.parent = None
-        self.owner = random.randint(1,4) if not self.water else 0
+        self.owner = random.randint(1,p) if not self.water else 0
 
     def removeTomb(self):
         self.hasTombstone = False
@@ -202,7 +208,7 @@ class Grid:
         self.sp = .09
         self.d = self.sp/1.05
         ratio = width/height
-        self.hexes = [Hex(self.sp*1.5*(x*2+(y%2)+1/3)-30*self.sp,y*self.sp*math.sin(math.pi/3)-20*self.sp,self.d, math.sqrt(abs((x-9)*1.5)**2+abs((y-22)/1.7)**2), x*100+y)  for y in range(45) for x in range(20)]
+        self.hexes = [Hex(self.sp*1.5*(x*2+(y%2)+1/3)-30*self.sp,y*self.sp*math.sin(math.pi/3)-20*self.sp,self.d, math.sqrt(abs((x-9)*1.5)**2+abs((y-22)/1.7)**2), x*100+y, len(self.engine.players))  for y in range(45) for x in range(20)]
         self.land = [h for h in self.hexes if not h.water]
         for h in self.land:
             h.neighbours = [g for g in self.land if h != g and inCircle(h.centre,g.centre, self.sp*2+.02)]
@@ -262,18 +268,18 @@ class Grid:
 
 class Engine:
     def __init__(self, Id):
-        self.gameId = Id
+        self.gameId = random.randint(0,1000)
         self.turn = 0;
         self.roundsPlayed = 0
-        self.initPlayers()
+        self.initPlayers(2)
         self.width = 1600
         self.height = 900
         self.grid = Grid(1, self.width, self.height, self)
         self.grid.populateMap(self.players)
         self.Gui = Gui(self, self.width, self.height)
     
-    def initPlayers(self):
-        self.players = {x : Player(1,"name",x) for x in range(1,5)}
+    def initPlayers(self, n):
+        self.players = {x : Player(1,"name",x) for x in range(1,n+1)}
 
     def buildRoad(self, unit):
         pass
@@ -393,11 +399,12 @@ class Engine:
             ret = True
             captured = True
         if ret:
+            unit.moved = captured
             if h.hasTree and unit.type<3:
                 unit.gatherWood()
             if h.hasTombstone and unit.type<3:
-                h.removeTomb()
-            unit.moved = captured
+                unit.removeTomb()
+            
 
         return ret
     def newGame(self, players, mapData):
@@ -411,7 +418,9 @@ class Engine:
                     t.putTree()
 
     def buildPhase(self,player):
-        pass
+        for v in player.villages:
+            for u in v.units:
+                u.update()
 
     def incomePhase(self,player):
         for v in player.villages:
@@ -427,19 +436,29 @@ class Engine:
         self.buildPhase(player)
         self.incomePhase(player)
         self.paymentPhase(player)
-        for v in player.villages:
-            for u in v.units:
-                u.update()
         self.turn = True
 
     def endTurn(self):
         self.turn = False
-        #sen data
+        #send data
 
         self.beginTurn(self.players[1])
 
     def run(self):
         self.Gui.run()
+
+    
+
+    def __getstate__(self):
+        odict = self.__dict__.copy()
+        try: 
+            del odict['Gui']    
+        except:
+            pass     
+        return odict
+    
+    def __setstate__(self, dict):
+        self.__dict__.update(dict)
 
 def inCircle(p1,p2,r):
     return math.sqrt(pow(p1[0]-p2[0],2)+pow(p1[1]-p2[1],2))<r
