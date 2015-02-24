@@ -278,14 +278,15 @@ class Engine:
         self.rounds = 0
         self.roundsPlayed = 0
         self.initPlayers(2)
-        self.width = 1600
-        self.height = 900
+        self.width = 1200
+        self.height = 700
+        self.seednumber = int(sys.argv[3])
+        random.seed(self.seednumber)
         self.grid = Grid(1, self.width, self.height, self)
         self.grid.populateMap(self.players)
         
         self.Gui = Gui(self, self.width, self.height, name, player)
-        self.seednumber = time.time()
-        random.seed(self.seednumber)
+        
     
     def initPlayers(self, n):
         self.players = {x : Player(1,"name",x) for x in range(1,n+1)}

@@ -1265,7 +1265,6 @@ class Client:
         while True:
             socket_list = [self.s]
             read_sockets, write_sockets, error_sockets = select.select(socket_list , [], [])
-
             for sock in read_sockets:
                 if sock == self.s:
                     with self.lock:
