@@ -1,8 +1,3 @@
-# todo the event driven I/O cannot respond fast enough because of the
-# sequential code server execute right after. Multiple client could send
-# message at the same time and sequence of message could got mixed up
-# use process pool and use CV on individual socket to synchronize send and recv
-# or a simpler solution is to fire up a thread every time a request comes in
 import queue
 import socket
 import logging
@@ -10,7 +5,7 @@ import sys
 import pickle
 import threading
 
-from Networking.Shared.message import ClientLogin, JoinRoom, CreateRoom, \
+from Shared.message import ClientLogin, JoinRoom, CreateRoom, \
     ReadyForGame, LeaveRoom, ChangeMap, TurnData, LeaveGame, ChatMessage
 
 
@@ -27,6 +22,12 @@ logger = logging.getLogger(__name__)
 SERVER_ADDR = ("localhost", 8000)
 send_queue = queue.Queue()
 
+class room():
+    def __init__(self, hos):
+        """init with host client"""
+        self.host = hos
+        self.players = {self.host}
+
 
 class ClientSocket(threading.Thread):
     """a wrapper on the socket from clients"""
@@ -42,8 +43,11 @@ class ClientSocket(threading.Thread):
         self.socket = sock
         self.socket_addr = self.socket.getpeername()
         self.username = None
+        self.thread_name = self.name
         self.closing = False
         self.sendQ = queue.Queue()
+        self.room = None
+        self.ready_for_room = False
 
     def send(self, message):
         """
@@ -166,7 +170,16 @@ class ClientSocket(threading.Thread):
     def handle_login(self, login_message):
         """link client socket to client username"""
         self.username = login_message.username
-        self.name = self.username  # change the thread name to username as well
+        self.thread_name = self.username  # change the thread_name to username as
+        # well
+        try:
+            if (self.server.player_stats[self.username]["status"]):
+                # todo send a warning message to client
+            else:
+                self.server.player_stats[self.username]["status"] = True
+        except KeyError as ke:
+            self.server.player_stats[self.username] = \
+                {"wins": 0, "status": True, "games": 0}
         logger.info("client logged in as {}: {}"
                     .format(self.username, self.socket_addr))
 
@@ -175,16 +188,17 @@ class ClientSocket(threading.Thread):
         pass
 
 
-    def handle_joinroom(self):
+    def handle_joinroom(self, dat):
+        self.room = dat.room
+        self.room.players.add(self)
         pass
 
 
     def handle_createroom(self, login_data):
         # generate room
-        # get random id for room
-        # put room in variable rooms
-        # return respond
-        pass
+        self.room = room(self)
+        # put the room to server
+        self.server.rooms[id(self.room)] = self.room
 
 
     def handle_readyforgame(self, login_data):
@@ -192,6 +206,8 @@ class ClientSocket(threading.Thread):
 
 
     def handle_leaveroom(self, login_data):
+        self.room.players.remove(self)
+        self.ready_for_room = False
         pass
 
 
@@ -200,6 +216,15 @@ class ClientSocket(threading.Thread):
 
 
     def handle_turndata(self, login_data):
+        pass
+
+    def handle_end_game(self, dat):
+        """send end game msg to all player in room
+        call server method updatePlayerStats
+        :param: dat: win/lose"""
+        # do_send(all_other_player_in_room, EndGameMsg(bool))
+        # self.server.updatePlayerStats()
+        # everybody go back to the room page
         pass
 
 
@@ -260,7 +285,7 @@ class ClientSocket(threading.Thread):
         """
         # spawn the sending thread
         threading.Thread(target=self.do_send, daemon=True,
-                         name=self.name + "-s").start()
+                         name=self.thread_name + "-s").start()
         # main recv and handle loop
         while not self.closing:
             # block on recv
@@ -282,6 +307,8 @@ class Server():
         self.all_connections = []  # used to store clients
         self.clients = {}  # temporary store for instances of ClientSocket
         self.WORKER_THREADS = worker_threads
+        self.rooms = {}
+        self.player_stats = {}
 
         try:
             server_socket = socket.socket()
@@ -356,8 +383,7 @@ class Server():
 
 
     def run(self):
-        # launch thread pool on send queue
-        send_queue.put(("hello", "world"))
+        # todo load self.player_stats
 
         # main loop
         try:

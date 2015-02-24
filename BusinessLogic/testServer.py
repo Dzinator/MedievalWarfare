@@ -3,9 +3,9 @@ import time
 import unittest
 import sys
 
-from Networking.Shared.message import ClientLogin, ChatMessage
-from Networking.Server.server import SERVER_ADDR
-from Networking.ClientAgent.mockClient import send_to_server, recv_from_server
+from Shared.message import ClientLogin, ChatMessage
+from Server.server import SERVER_ADDR
+from ClientAgent.mockClient import send_to_server, recv_from_server
 
 
 class testServer(unittest.TestCase):

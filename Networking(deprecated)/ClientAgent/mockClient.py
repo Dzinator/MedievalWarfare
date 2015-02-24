@@ -2,7 +2,7 @@ import logging
 import socket
 import pickle
 # noinspection PyUnresolvedReferences
-from Networking.Shared.message import ClientLogin, JoinRoom, CreateRoom, \
+from Shared.message import ClientLogin, JoinRoom, CreateRoom, \
     ReadyForGame, LeaveRoom, ChangeMap, TurnData, LeaveGame, ChatMessage
 
 # initialize loggin

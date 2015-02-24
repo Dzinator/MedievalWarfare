@@ -1,5 +1,5 @@
 import socket, select
- 
+
 def broadcast_data (sock, message):
     for socket in CONNECTION_LIST:
         if socket != server_socket and socket != sock :
@@ -37,9 +37,9 @@ while True:
                 data = sock.recv(RECV_BUFFER)
                 if data:
                     #print("\r" + '<' + str(sock.getpeername()) + '> ' +data.decode('utf-8'))
-                    #bytes("\r" + '<' + str(sock.getpeername()) + '> ','utf-8') + 
-                    broadcast_data(sock, data)                
-             
+                    #bytes("\r" + '<' + str(sock.getpeername()) + '> ','utf-8') +
+                    broadcast_data(sock, data)
+
             except:
                 #broadcast_data(sock, "Client (%s, %s) is offline" % addr)
                 print ("Client (%s, %s) is offline" % addr)

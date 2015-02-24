@@ -1,8 +1,8 @@
 import socket
-from Networking.ClientAgent.mockClient import send_to_server, recv_from_server
+from ClientAgent.mockClient import send_to_server, recv_from_server
 
 # noinspection PyUnresolvedReferences
-from Networking.Shared.message import ClientLogin, JoinRoom, CreateRoom, \
+from Shared.message import ClientLogin, JoinRoom, CreateRoom, \
     ReadyForGame, LeaveRoom, ChangeMap, TurnData, LeaveGame, ChatMessage
 
 
