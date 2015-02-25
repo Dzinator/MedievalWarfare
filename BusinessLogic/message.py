@@ -13,7 +13,6 @@ class ClientLogin(BaseClientMessage):
 
     def __init__(self, username):
         super().__init__()
-        # todo add document
         self.username = username
 
 class GetRoomList(BaseClientMessage):
@@ -27,8 +26,6 @@ class JoinRoom(BaseClientMessage):
     def __init__(self, id):
         super().__init__()
         self.roomId = id
-        # todo add document
-        # self.room = room
 
 
 class CreateRoom(BaseClientMessage):
@@ -38,11 +35,14 @@ class CreateRoom(BaseClientMessage):
         super().__init__()
 
 class sendRoom(BaseClientMessage):
+    """Server Message: respond to client's createRoom or JoinRoom"""
     def __init__(self, id):
         super().__init__()
         self.roomId = id
 
 # in room
+# todo add roomUpdate Msg
+# todo consider adding a failuer msg when not log in as bad username and such
 class LeaveRoom(BaseClientMessage):
     """This message is send by the client when leaving a room he/she is in"""
 

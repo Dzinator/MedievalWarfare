@@ -1,3 +1,4 @@
+from functools import wraps
 import queue
 import socket
 import logging
@@ -5,27 +6,67 @@ import sys
 import pickle
 import threading
 
-from message import *
+try:
+    from message import *
+except:
+    from .message import *
 
 
 
 # initialize logging
 
 logging.basicConfig(level="INFO",
-                    format='%(asctime)s(%(threadName)-10s)[%(levelname)s] '
+                    format='%(asctime)s(%(threadName)-10s)[%(levelname)s]<%('
+                           'lineno)s> '
                            '%(message)s')
 logger = logging.getLogger(__name__)
 
 
 # define global varaibles
 SERVER_ADDR = ("localhost", 8000)
-send_queue = queue.Queue()
+
+# decorators---------------
+def logged_in(f):
+    @wraps(f)
+    def _wrapper(self, *args, **kwargs):
+        if self.username:
+            f(self, *args, **kwargs)
+        else:
+            logger.error("Unable to handle last message because player not "
+                         "logged in")
+
+    return _wrapper
+
+
+def in_room(f):
+    @wraps(f)
+    def _wrapper(self, *args, **kwargs):
+        if self.room:
+            f(self, *args, **kwargs)
+        else:
+            logger.error("Unable to handle last message because player not "
+                         "in a room")
+
+    return _wrapper
+
+
+# todo add in_game and in_lobby decorators maybe
+# decorators end---------------
+
 
 class room():
-    def __init__(self, hos):
-        """init with host client"""
-        self.host = hos
-        self.players = {self.host}
+    # todo consider using lock on this class
+    def __init__(self):
+        self.players = set()
+
+    def add_player(self, p):
+        self.players.add(p)
+
+    def remove_player(self, p):
+        self.players.remove(p)
+
+    def is_empty(self):
+        return not self.players
 
 
 class ClientSocket(threading.Thread):
@@ -41,12 +82,14 @@ class ClientSocket(threading.Thread):
         self.server = server
         self.socket = sock
         self.socket_addr = self.socket.getpeername()
+        self.send_thread = None
         self.username = None
-        self.thread_name = self.name
-        self.closing = False
+        # make a unique name for thread before username is available
+        self.thread_name = "{}".format(str(hex(id(self)))[:5:-1])
         self.sendQ = queue.Queue()
         self.room = None
         self.ready_for_room = False
+
 
     def send(self, message):
         """
@@ -57,7 +100,9 @@ class ClientSocket(threading.Thread):
         :type message: BaseClientMessage
         """
         try:
-            logger.info("sending message to {}".format(self.username))
+            # todo message class
+            logger.info(
+                "sending {} message".format(message.__class__.__name__))
             pmessage = pickle.dumps(message)
         except Exception as e:
             logger.error("failed to pickle message")
@@ -67,11 +112,10 @@ class ClientSocket(threading.Thread):
         try:
             header = "{}{}".format(len(pmessage), "\n").encode()
             self.socket.sendall(header + pmessage)
-        except OSError as ose:
+        except Exception as e:
             logger.error("failed to send to socket: {}".format(
                 self.socket_addr))
-            logger.debug(ose)
-            self.close()
+            raise
         return
 
     # ----START HELPER FUNCTION----
@@ -139,80 +183,107 @@ class ClientSocket(threading.Thread):
 
     def close(self, an_exception=None):
         """
+        called by thread(the recv thread)
         gracefully close the socket and do the clean up
         :type an_exception: Exception
         """
-        if self.closing:
-            return
-        self.closing = True
-        logger.info("client disconnected: {}"
-                    .format(self.socket_addr))
+        logger.info("client disconnected: {}".format(self.socket_addr))
         if an_exception:
             logger.warning("exception occured during disconnection: {"
                            "}".format(an_exception.__class__.__name__))
             logger.debug(an_exception)
+        # leave any room that is in
+        if self.room:
+            self.handle_leaveroom(None)
+        # set the player_stat to logged out
+        self.server.player_stats[self.username]["status"] = False
         self.socket.close()
         self.server.drop_connection(self.socket)
-
-    def handle_chat_message(self, chat_message):
-        # todo change receiver to only people in same game
-        # consider making a server method instead of directly doing this
-        receivers = self.server.all_connections
-        for c in receivers:
-            if c != self.socket:
-                self.server.clients[c].sendQ.put(chat_message)
-        logger.info("handle chat messaeg")
 
     def handle_login(self, login_message):
         """link client socket to client username"""
         self.username = login_message.username
-        self.thread_name = self.username  # change the thread_name to username as
-        # well
+        self.thread_name = self.username  # thread_name to username
+        self.setName(self.thread_name)
+        self.send_thread.setName(self.thread_name + "-s")
         try:
-            if (self.server.player_stats[self.username]["status"]):
+            if self.server.player_stats[self.username]["status"]:
+                # Someone else already logged in using this name
                 # todo send a warning message to client
-                pass
+                logger.info(
+                    "Re-login attempt detected: {}".format(self.username))
             else:
                 self.server.player_stats[self.username]["status"] = True
+                logger.info("welcome back! {}".format(self.username))
         except KeyError as ke:
+            # create this name
             self.server.player_stats[self.username] = \
                 {"wins": 0, "status": True, "games": 0}
+            logger.info("new profile created: {}".format(self.username))
         logger.info("client logged in as {}: {}"
                     .format(self.username, self.socket_addr))
 
-    def handle_logout(self):  # todo write change to disk
-        pass
+    @logged_in
+    @in_room
+    def handle_chat_message(self, chat_message):
+        if self.room:
+            for p in self.room.players:
+                if p is not self:
+                    p.sendQ.put(chat_message)
 
+    @logged_in
     def handle_joinroom(self, dat):
-        self.room = dat.roomId
-        if self.server.rooms[0]:
-            self.room.players.add(self)
+        # todo fixthis
+        room_to_join = next(iter(self.server.rooms.values()))
+        self.room = room_to_join
+        if room_to_join:
+            self.room.add_player(self)
+        # todo sendRoom(room)
         pass
 
+    @logged_in
     def handle_createroom(self, login_data):
         # generate room
-        self.room = room(self)
+        self.room = room()
+        self.room.add_player(self)
         # put the room to server
         self.server.rooms[id(self.room)] = self.room
         self.sendQ.put(sendRoom(id(self.room)))
 
+    @logged_in
+    @in_room
     def handle_readyforgame(self, login_data):
         pass
 
 
-    def handle_leaveroom(self, login_data):
-        self.room.players.remove(self)
+    @logged_in
+    @in_room
+    def handle_leaveroom(self, msg):
+        # todo if we need host, change host if self is host
+        # todo maybe we don't need host, everybody is host
+        self.room.remove_player(self)
+        if self.room.is_empty():
+            self.server.rooms.pop(id(self.room))
+        self.room = None
         self.ready_for_room = False
-        pass
 
 
+    @logged_in
+    @in_room
     def handle_changemap(self, login_data):
         pass
 
 
-    def handle_turndata(self, login_data):
-        pass
+    @logged_in
+    @in_room
+    def handle_turndata(self, turndata):
+        if self.room:
+            for p in self.room.players:
+                if p is not self:
+                    p.sendQ.put(turndata)
 
+    @logged_in
+    @in_room
     def handle_end_game(self, dat):
         """send end game msg to all player in room
         call server method updatePlayerStats
@@ -223,6 +294,8 @@ class ClientSocket(threading.Thread):
         pass
 
 
+    @logged_in
+    @in_room
     def handle_leavegame(self, login_data):
         pass
 
@@ -248,8 +321,7 @@ class ClientSocket(threading.Thread):
             # todo special treatment for login message
             # client must be logged in before sending other messages
             handler = dispatcher[msg.__class__.__name__]
-            logger.info("handling {} message for client {}".format(
-                msg.__class__.__name__, self.socket_addr))
+            logger.info("handling {} message".format(msg.__class__.__name__))
             handler(msg)
         except KeyError as ke:
             logger.error(
@@ -264,37 +336,44 @@ class ClientSocket(threading.Thread):
         """
         a sub thread execute this function to send message stored on sendQ
         """
-        while not self.closing:
+        while 1:
             # block on get from Q
             msg = self.sendQ.get()
             # check if client has a username
             if self.username:
                 threading.currentThread().setName(self.username + "-s")
             # send the message
-            self.send(msg)
+            try:
+                self.send(msg)
+            except Exception:
+                break
 
     def run(self):
         """
         first spawn a thread to send
         then it block on recv and put new message on sendQ
         """
+        self.setName(self.thread_name)
+        logger.info("new client connected: {}".format(self.socket_addr))
         # spawn the sending thread
-        t = threading.Thread(target=self.do_send,
-                         name=self.thread_name + "-s")
-        t.daemon = True
-        t.start()
+        self.send_thread = threading.Thread(target=self.do_send,
+                                            name=(self.thread_name + "-s"))
+        self.send_thread.daemon = True
+        self.send_thread.start()
 
         # main recv and handle loop
-        while not self.closing:
+        while 1:
             # block on recv
             new_msg = self.recv()
             if new_msg:
-                # handle message could be slow depending on message size
-                # we will not thread this for now
                 self.handle_message(new_msg)
+                # check if client has a username
+                if self.username:
+                    threading.currentThread().setName(self.username + "-s")
             else:
                 # assume the connection is broken
                 self.close()
+                break
 
 
 class Server():
@@ -302,11 +381,11 @@ class Server():
 
     def __init__(self, server_addr=("localhost", 8000),
                  max_connections_allowed=10, worker_threads=4):
-        self.all_connections = []  # used to store clients
+        self.data_file = "datafile.dat"
         self.clients = {}  # temporary store for instances of ClientSocket
         self.WORKER_THREADS = worker_threads
         self.rooms = {}
-        self.player_stats = {}
+        self.player_stats = None # initialized in method start
 
         try:
             server_socket = socket.socket()
@@ -321,22 +400,6 @@ class Server():
             self.server_socket = server_socket
             logger.info("server started at {}".format(server_addr))
 
-    def work(self):
-        """used by worker thread"""
-        try:
-            while 1:
-                client_sock, message = send_queue.get()
-                client = self.clients.get(client_sock)
-                if client:
-                    client.handle_message(message)
-        except KeyboardInterrupt as kie:
-            pass
-        except Exception as e:
-            logger.error("Exception Occured in thread")
-            logger.exception(e)
-        finally:
-            logger.info("thread terminating")
-
 
     def drop_connection(self, dropped_client_socket):
         """
@@ -345,7 +408,6 @@ class Server():
         :type dropped_client_socket: socket.socket
         """
         self.clients.pop(dropped_client_socket)
-        self.all_connections.remove(dropped_client_socket)
 
 
     def accept_new_connection(self):
@@ -360,14 +422,12 @@ class Server():
         else:
             new_client = ClientSocket(new_client_socket, self)
             self.clients[new_client_socket] = new_client
-            self.all_connections.append(new_client_socket)
-            logger.info("new client connected {}"
-                        .format(self.clients[new_client_socket].socket_addr))
             new_client.start()
 
     def summary(self):
         logger.info("Summary: clients still connected: {}"
-                    .format(self.all_connections))
+                    .format(self.clients))
+        logger.info("Summary: rooms not removed: {}".format(self.rooms))
 
     def shut_down(self):
         try:
@@ -377,11 +437,18 @@ class Server():
         except KeyError as ke:
             pass
         self.server_socket.close()
+        logger.info("server socket is closed")
+        with open(self.data_file, "wb") as f:
+            pickle.dump(self.player_stats, f)
+        logger.info("player stats saved")
         self.summary()
 
 
-    def run(self):
-        # todo load self.player_stats
+    def start(self):
+        with open(self.data_file, "rb") as f:
+            self.player_stats = pickle.load(f)
+        if not self.player_stats:
+            self.player_stats = {}
 
         # main loop
         try:
@@ -399,5 +466,5 @@ class Server():
 
 if __name__ == "__main__":
     server = Server(SERVER_ADDR)
-    server.run()
+    server.start()
 
