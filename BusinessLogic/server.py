@@ -5,8 +5,7 @@ import sys
 import pickle
 import threading
 
-from Shared.message import ClientLogin, JoinRoom, CreateRoom, \
-    ReadyForGame, LeaveRoom, ChangeMap, TurnData, LeaveGame, ChatMessage
+from message import *
 
 
 
@@ -109,7 +108,6 @@ class ClientSocket(threading.Thread):
 
     # ----END HELPER FUNCTION----
 
-
     def recv(self):
         """
         wrap recv method to provide additional features:
@@ -122,7 +120,7 @@ class ClientSocket(threading.Thread):
             message_len = self.receive_len_header(self.socket)
             new_pmsg = self.recv_real_message(self.socket,
                                               message_len)  # pickled
-        except OSError as ose:  # connection dropped lead to exception
+        except Exception:
             return None
         if new_pmsg:  # received message successfully
             try:
@@ -156,7 +154,6 @@ class ClientSocket(threading.Thread):
         self.socket.close()
         self.server.drop_connection(self.socket)
 
-
     def handle_chat_message(self, chat_message):
         # todo change receiver to only people in same game
         # consider making a server method instead of directly doing this
@@ -166,7 +163,6 @@ class ClientSocket(threading.Thread):
                 self.server.clients[c].sendQ.put(chat_message)
         logger.info("handle chat messaeg")
 
-
     def handle_login(self, login_message):
         """link client socket to client username"""
         self.username = login_message.username
@@ -175,6 +171,7 @@ class ClientSocket(threading.Thread):
         try:
             if (self.server.player_stats[self.username]["status"]):
                 # todo send a warning message to client
+                pass
             else:
                 self.server.player_stats[self.username]["status"] = True
         except KeyError as ke:
@@ -183,23 +180,21 @@ class ClientSocket(threading.Thread):
         logger.info("client logged in as {}: {}"
                     .format(self.username, self.socket_addr))
 
-
     def handle_logout(self):  # todo write change to disk
         pass
 
-
     def handle_joinroom(self, dat):
-        self.room = dat.room
-        self.room.players.add(self)
+        self.room = dat.roomId
+        if self.server.rooms[0]:
+            self.room.players.add(self)
         pass
-
 
     def handle_createroom(self, login_data):
         # generate room
         self.room = room(self)
         # put the room to server
         self.server.rooms[id(self.room)] = self.room
-
+        self.sendQ.put(sendRoom(id(self.room)))
 
     def handle_readyforgame(self, login_data):
         pass
@@ -284,8 +279,11 @@ class ClientSocket(threading.Thread):
         then it block on recv and put new message on sendQ
         """
         # spawn the sending thread
-        threading.Thread(target=self.do_send, daemon=True,
-                         name=self.thread_name + "-s").start()
+        t = threading.Thread(target=self.do_send,
+                         name=self.thread_name + "-s")
+        t.daemon = True
+        t.start()
+
         # main recv and handle loop
         while not self.closing:
             # block on recv

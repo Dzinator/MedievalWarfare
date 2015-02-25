@@ -4,7 +4,7 @@ class BaseClientMessage():
     """This is the base message that all client message should inherite
     Don't use this class directly"""
 
-    def __init__(self, ):
+    def __init__(self):
         pass
 
 
@@ -16,14 +16,17 @@ class ClientLogin(BaseClientMessage):
         # todo add document
         self.username = username
 
+class GetRoomList(BaseClientMessage):
+    def __init__(self, ids):
+        super().__init__()
+        self.roomIds = ids
 
 # in lobby
 class JoinRoom(BaseClientMessage):
     """The message send when client had chosen a room to join"""
-
-    def __init__(self):
+    def __init__(self, id):
         super().__init__()
-        pass
+        self.roomId = id
         # todo add document
         # self.room = room
 
@@ -33,8 +36,11 @@ class CreateRoom(BaseClientMessage):
 
     def __init__(self):
         super().__init__()
-        pass
 
+class sendRoom(BaseClientMessage):
+    def __init__(self, id):
+        super().__init__()
+        self.roomId = id
 
 # in room
 class LeaveRoom(BaseClientMessage):
@@ -65,9 +71,10 @@ class ChangeMap(BaseClientMessage):
 class TurnData(BaseClientMessage):
     """active player send this when she finished her turn"""
 
-    def __init__(self):
+    def __init__(self, f, args):
         super().__init__()
-        pass
+        self.fname = f
+        self.fargs = args
         # todo add document
         # self.turn_data = turn_data
 
