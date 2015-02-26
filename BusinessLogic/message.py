@@ -15,6 +15,14 @@ class ClientLogin(BaseClientMessage):
         super().__init__()
         self.username = username
 
+class LoginAck(BaseClientMessage):
+    """send by server: respond for ClientLogin msg"""
+    def __init__(self, suc):
+        """ :param suc: bool """
+        super().__init__()
+        self.success = suc
+
+
 class GetRoomList(BaseClientMessage):
     def __init__(self):
         super().__init__()
