@@ -19,7 +19,10 @@ class ThreadDispatcher(QThread):
                 msg = self.client.outQueue.get()
                 #self.transition(2) or self.name.setText(
                 if type(msg) == sendRoom:
-                    QApplication.postEvent(self.parent, _Event(lambda:self.parent.transition(2) or self.parent.name.setText(str(msg.roomId)) or self.parent.listPlayers.addItems(msg.playerlist)))
+                    QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.clear()))
+                    QApplication.postEvent(self.parent, _Event(lambda:self.parent.transition(2)))
+                    QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.addItems(msg.playerlist)))
+                    QApplication.postEvent(self.parent, _Event(lambda:self.parent.name.setText(str(msg.roomId)) ))
                 elif type(msg) ==LoginAck:
                     if msg.success:
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.transition(1)))
@@ -257,7 +260,7 @@ class Main(QWidget):
 
         refresh = HoverButton('Back', self)
         refresh.setFixedSize(100,60)
-        refresh.clicked.connect(lambda: self.transition(1))
+        refresh.clicked.connect(lambda: self.transition(1) or self.dispatcher.client.inQueue.put(LeaveRoom()))
         buttons.addWidget(refresh)
 
         spacer1 = QWidget(self)
