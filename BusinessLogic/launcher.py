@@ -1,6 +1,52 @@
-import subprocess
+import subprocess, time
 from PySide.QtGui import *
 from PySide import QtCore
+from PySide.QtCore import *
+from client import Client
+from main import Engine
+from message import *
+
+class ThreadDispatcher(QThread):
+    def __init__(self, parent):
+        QThread.__init__(self)
+        self.client = Client('142.157.148.89', 8000, "aaron", self)
+        self.parent = parent
+        self.running = True
+
+    def run(self):
+        while self.running:
+            if not self.client.outQueue.empty():
+                msg = self.client.outQueue.get()
+                #self.transition(2) or self.name.setText(
+                if type(msg) == sendRoom:
+                    QApplication.postEvent(self.parent, _Event(lambda:self.parent.transition(2) or self.parent.name.setText(str(msg.roomId)) or self.parent.listPlayers.addItems(msg.playerlist)))
+                elif type(msg) ==LoginAck:
+                    if msg.success:
+                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.transition(1)))
+                    else:
+                        print("Could not login")
+                elif type(msg) == SendRoomList:
+                    print("ids: "+str(msg.room_list))
+                    QApplication.postEvent(self.parent, _Event(lambda:self.parent.listLobby.clear()))
+                    QApplication.postEvent(self.parent, _Event(lambda:self.parent.listLobby.addItems([str(id) for id in msg.room_list])))
+                elif msg is None:
+                    break
+            #QApplication.postEvent(self.parent, _Event(lambda:self.parent.listLobby.addItem("hello")))
+            time.sleep(.1)
+
+    def stop(self):
+        #idle_loop.put(None)
+        #self.wait()
+        self.running = False
+        self.client.s.close()
+
+class _Event(QEvent):
+    EVENT_TYPE = QEvent.Type(QEvent.registerEventType())
+
+    def __init__(self, callback):
+        #thread-safe
+        QEvent.__init__(self, _Event.EVENT_TYPE)
+        self.callback = callback
 
 class HoverButton(QPushButton):
     def __init__(self, text, parent):
@@ -39,8 +85,10 @@ class MoveBar(QPushButton):
 
 class Main(QWidget):
     def __init__(self):
+        app = QApplication([])
         super().__init__()
         self.windows = {}
+        self.dispatcher = ThreadDispatcher(self)
      
         self.setWindowFlags(QtCore.Qt.FramelessWindowHint)
         self.resize(600, 300)
@@ -85,6 +133,13 @@ class Main(QWidget):
         layout1.addWidget(self.lobby())
         self.setLayout(self.mainLayout)
         self.show()
+        self.dispatcher.start()
+        app.exec_()
+        self.dispatcher.stop()
+
+    def customEvent(self, event):
+        #process idle_queue_dispatcher events
+        event.callback()
 
     def loginScreen(self):
         self.screen0 =QWidget()
@@ -115,7 +170,7 @@ class Main(QWidget):
         buttons = QVBoxLayout()
         refresh = HoverButton('Login', self)
         refresh.setFixedSize(100,60)
-        refresh.clicked.connect(lambda: self.transition(1))
+        refresh.clicked.connect(lambda: self.dispatcher.client.inQueue.put(ClientLogin(username.text())))
         buttons.addWidget(refresh)
 
         spacer2 = QWidget(self)
@@ -130,28 +185,30 @@ class Main(QWidget):
         self.screen1 =QWidget()
         layout2 = QHBoxLayout()
         self.screen1.setLayout(layout2)
-        listWidget = QListWidget()
-        listWidget.setAlternatingRowColors(True)
-        listWidget.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;")
-        QListWidgetItem("Lobby 1", listWidget)
-        QListWidgetItem("Lobby 2", listWidget)
-        QListWidgetItem("Lobby 3", listWidget)
-        QListWidgetItem("Lobby 4", listWidget)
-        QListWidgetItem("Lobby 5", listWidget)
-        QListWidgetItem("Lobby 6", listWidget)
-        layout2.addWidget(listWidget)
+        self.listLobby = QListWidget()
+        self.listLobby.setAlternatingRowColors(True)
+        self.listLobby.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;")
+       
+        layout2.addWidget(self.listLobby)
 
         buttons = QVBoxLayout()
         
-        join = HoverButton('Join Lobby', self)
+        join = HoverButton('Join Room', self)
         join.setFixedSize(100,60)
-        join.clicked.connect(lambda: self.transition(2) or self.name.setText(listWidget.currentItem().text() if listWidget.currentItem() else "")) #subprocess.Popen("python main.py", shell = True)
+        #self.transition(2) or self.name.setText(self.listLobby.currentItem().text() if self.listLobby.currentItem() else "")
+        join.clicked.connect(lambda: self.dispatcher.client.inQueue.put(JoinRoom(int(self.listLobby.currentItem().text()))) if self.listLobby.currentItem() else False) #subprocess.Popen("python main.py", shell = True)
         buttons.addWidget(join)
 
-        refresh = HoverButton('Refresh List', self)
+        create = HoverButton('Create Room', self)
+        create.setFixedSize(100,60)
+        create.clicked.connect(lambda: self.dispatcher.client.inQueue.put(CreateRoom())) #subprocess.Popen("python main.py", shell = True)
+        buttons.addWidget(create)
+
+        refresh = HoverButton('Refresh', self)
         refresh.setFixedSize(100,60)
-        refresh.clicked.connect(lambda: print("refreshed")) #subprocess.Popen("python main.py", shell = True)
+        refresh.clicked.connect(lambda: self.dispatcher.client.inQueue.put(GetRoomList())) #subprocess.Popen("python main.py", shell = True)
         buttons.addWidget(refresh)
+
         layout2.addLayout(buttons)
         self.windows['1'] = self.screen1
         self.screen1.hide()
@@ -161,15 +218,10 @@ class Main(QWidget):
         self.screen2 =QWidget()
         layout2 = QHBoxLayout()
         self.screen2.setLayout(layout2)
-        listWidget = QListWidget()
-        listWidget.setAlternatingRowColors(True)
-        listWidget.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;")
-        QListWidgetItem("Player 1", listWidget)
-        QListWidgetItem("Player 2", listWidget)
-        QListWidgetItem("Player 3", listWidget)
-        QListWidgetItem("Player 4", listWidget)
-
-        layout2.addWidget(listWidget)
+        self.listPlayers = QListWidget()
+        self.listPlayers.setAlternatingRowColors(True)
+        self.listPlayers.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;")
+        layout2.addWidget(self.listPlayers)
 
         buttons = QVBoxLayout()
 
@@ -200,7 +252,7 @@ class Main(QWidget):
         buttons.addWidget(combo)
         join = HoverButton('Ready', self)
         join.setFixedSize(100,60)
-        join.clicked.connect(lambda: subprocess.Popen("python main.py", shell = True)) #subprocess.Popen("python main.py", shell = True)
+        join.clicked.connect(lambda: Engine(1, "aaron", 1, 89,self.dispatcher.client)) #subprocess.Popen("python main.py", shell = True)
         buttons.addWidget(join)
 
         refresh = HoverButton('Back', self)
@@ -230,14 +282,11 @@ class Main(QWidget):
             self.windows['0'].hide()
             self.windows['1'].hide()
             self.windows['2'].show()
-
-  
-    
  
 #self.button.setStyleSheet("background-color:" + color.name())
-app = QApplication([])
+
     
 main = Main()
 
-app.exec_()
+
 #status = subprocess.call("python main.py", shell=True)

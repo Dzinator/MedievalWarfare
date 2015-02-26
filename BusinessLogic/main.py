@@ -269,24 +269,23 @@ class Grid:
         return path
 
 class Engine:
-    def __init__(self, Id):
+    def __init__(self, Id, name, player, seed):
         #temp
-        name = sys.argv[1]
-        player = int(sys.argv[2])
         self.gameId = random.randint(0,1000)
         self.turn = 1
         self.rounds = 0
         self.roundsPlayed = 0
-        self.initPlayers(2)
+        self.initPlayers(1)
         self.width = 1200
         self.height = 700
-        self.seednumber = int(sys.argv[3])
+        self.seednumber = seed
         random.seed(self.seednumber)
         self.grid = Grid(1, self.width, self.height, self)
         self.grid.populateMap(self.players)
         
         self.Gui = Gui(self, self.width, self.height, name, player)
-        
+
+        self.run()
     
     def initPlayers(self, n):
         self.players = {x : Player(1,"name",x) for x in range(1,n+1)}
@@ -301,10 +300,10 @@ class Engine:
             return False
         if unit.type == 1 and h.village.hex == h:
             return False
-        if (h.occupant and h.occupant.type>=unit.type) or (h.hasWatchTower and unit.type==1) or (h.village.type ==2 and h==h.village.hex and unit.type<3):
+        if (h.occupant and h.occupant.type>=unit.type) or (h.hasWatchTower and unit.type<2) or (h.village.type ==2 and h==h.village.hex and unit.type<3):
                 return False
         for g in h.neighbours:
-            if(g.occupant and g.occupant.type>=unit.type and g.village.owner == h.village.owner) or (g.hasWatchTower and unit.type==1 and g.village.owner == h.village.owner) or (h.village.type ==2 and g==h.village.hex and unit.type<3):
+            if(g.occupant and g.occupant.type>=unit.type and g.village.owner == h.village.owner) or (g.hasWatchTower and unit.type<2 and g.village.owner == h.village.owner) or (h.village.type ==2 and g==h.village.hex and unit.type<3):
                 return False
         return True
 
@@ -345,7 +344,6 @@ class Engine:
                     g.village = None
                     g.owner = 0
             elif h.village.hex not in split:
-                print([x.number for x in split])
                 h.village.owner.addVillage(Village(random.choice(split), h.village.owner, split))
                 for g in split:
                     h.village.territory.remove(g)
@@ -369,7 +367,7 @@ class Engine:
             h.village.owner.villages.remove(h.village)
             h.village.killUnits()
             if h.village.hex != h:
-                h.village.hex.hasTree = True
+                h.village.hex.putTree()
             if h.village.hex == h:
                 unit.village.gold += h.village.gold
                 unit.village.wood += h.village.wood
@@ -524,5 +522,3 @@ class Engine:
 def inCircle(p1,p2,r):
     return math.sqrt(pow(p1[0]-p2[0],2)+pow(p1[1]-p2[1],2))<r
 
-engine = Engine(1)
-engine.run()

@@ -1,4 +1,6 @@
 import pygame, sys,math,  numpy as np, OpenGL.arrays.vbo as glvbo, threading, os, sys, pickle,socket, select, string,queue, time, random
+from message import *
+from client import Client
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.raw import GL as g
@@ -387,27 +389,27 @@ class UI:
         self.bottomBar = Element(-aspect, self.height,2*aspect, 0.03,[0,0,0,1])
         self.topBar = Element(-aspect, -self.height,2*aspect, 0.03,[0,0,0,1])
         
-        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.buildMeadow(),lambda: True if self.gui.selected.occupant.type<3 and not self.gui.selected.hasMeadow and not self.gui.selected.occupant.moved else False, "build meadow"))
-        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.buildRoad(),lambda: True if self.gui.selected.occupant.type<3 and not self.gui.selected.hasRoad and not self.gui.selected.occupant.moved else False, "build road"))
-        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.upgradeUnit(1),lambda: True if self.gui.selected.occupant.type<1 and self.gui.selected.village.gold>=10*(1-self.gui.selected.occupant.type) else False, "upgrade infantry"))
-        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.upgradeUnit(2),lambda: True if self.gui.selected.occupant.type<2 and self.gui.selected.village.type and self.gui.selected.village.gold>=10*(2-self.gui.selected.occupant.type) >0 else False, "upgrade soldier"))
-        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.upgradeUnit(3), lambda: True if self.gui.selected.occupant.type<3 and self.gui.selected.village.type >1 and not self.gui.selected.occupant.action and self.gui.selected.village.gold>=10*(3-self.gui.selected.occupant.type) else False, "upgrade knight"))
-        self.unitButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.buildWatchTower(),lambda: True if self.gui.selected.village.wood>=5 and self.gui.selected.village.type >0 and not self.gui.selected.hasWatchTower else False, "build tower"))
+        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.buildMeadow(),lambda: True if self.gui.selected and self.gui.selected.occupant and self.gui.selected.occupant.type<3 and not self.gui.selected.hasMeadow and not self.gui.selected.occupant.moved else False, "build meadow"))
+        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.buildRoad(),lambda: True if self.gui.selected and self.gui.selected.occupant and self.gui.selected.occupant.type<3 and not self.gui.selected.hasRoad and not self.gui.selected.occupant.moved else False, "build road"))
+        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.upgradeUnit(1),lambda: True if self.gui.selected and self.gui.selected.occupant and self.gui.selected.occupant.type<1 and self.gui.selected.village.gold>=10*(1-self.gui.selected.occupant.type) else False, "upgrade infantry"))
+        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.upgradeUnit(2),lambda: True if self.gui.selected and self.gui.selected.occupant and self.gui.selected.occupant.type<2 and self.gui.selected.village.type and self.gui.selected.village.gold>=10*(2-self.gui.selected.occupant.type) >0 else False, "upgrade soldier"))
+        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.upgradeUnit(3), lambda: True if self.gui.selected and self.gui.selected.occupant and self.gui.selected.occupant.type<3 and self.gui.selected.village.type >1 and not self.gui.selected.occupant.action and self.gui.selected.village.gold>=10*(3-self.gui.selected.occupant.type) else False, "upgrade knight"))
+        self.unitButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.buildWatchTower(),lambda: True if self.gui.selected and self.gui.selected.village.wood>=5 and self.gui.selected.village.type >0 and not self.gui.selected.hasWatchTower else False, "build tower"))
         self.villageButtons = []
         self.hexButtons = []
         
-        self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.spawnUnit(0),lambda: True if self.gui.selected.village.gold>=10  else False, "buy peasant"))
-        self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.spawnUnit(1),lambda: True if self.gui.selected.village.gold>=20 else False, "buy infantry"))
+        self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.spawnUnit(0),lambda: True if self.gui.selected and self.gui.selected.village and self.gui.selected.village.gold>=10  else False, "buy peasant"))
+        self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.spawnUnit(1),lambda: True if self.gui.selected and self.gui.selected.village and self.gui.selected.village.gold>=20 else False, "buy infantry"))
         
-        self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.spawnUnit(2),lambda: True if self.gui.selected.village.gold>=30 and self.gui.selected.village.type >0 else False, "buy soldier"))
-        self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.spawnUnit(3),lambda: True if self.gui.selected.village.gold>=40 and self.gui.selected.village.type >1 and  not self.gui.selected.hasTree else False, "buy knight"))
-        self.villageButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.upgradeVillage(),lambda: True if self.gui.selected.village.wood>=8 and self.gui.selected.village.type<2 else False, "upgrade town"))
-        self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.buildWatchTower(),lambda: True if self.gui.selected.village.wood>=5 and self.gui.selected.village.type >0 and not self.gui.selected.hasWatchTower else False, "build tower"))
+        self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.spawnUnit(2),lambda: True if self.gui.selected and self.gui.selected.village and self.gui.selected.village.gold>=30 and self.gui.selected.village.type >0 else False, "buy soldier"))
+        self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.spawnUnit(3),lambda: True if self.gui.selected and self.gui.selected.village and self.gui.selected.village.gold>=40 and self.gui.selected.village.type >1 and  not self.gui.selected.hasTree else False, "buy knight"))
+        self.villageButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.upgradeVillage(),lambda: True if self.gui.selected and self.gui.selected.village and self.gui.selected.village.wood>=8 and self.gui.selected.village.type<2 else False, "upgrade town"))
+        self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.buildWatchTower(),lambda: True if self.gui.selected and self.gui.selected.village and self.gui.selected.village.wood>=5 and self.gui.selected.village.type >0 and not self.gui.selected.hasWatchTower else False, "build tower"))
          
         self.combineButtons = []  
-        self.combineButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.combine(),lambda: True if self.gui.selected and self.gui.combiner and  self.gui.selected.village.canCombinetoInfantry(self.gui.selected.occupant, self.gui.combiner.occupant) else False , "combine to infantry"))
-        self.combineButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.combine(),lambda: True if self.gui.selected and self.gui.combiner and self.gui.selected.village.canCombinetoSoldier(self.gui.selected.occupant, self.gui.combiner.occupant) else False , "combine to soldier"))     
-        self.combineButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.combine(),lambda: True if self.gui.selected and self.gui.combiner and self.gui.selected.village.canCombinetoKnight(self.gui.selected.occupant, self.gui.combiner.occupant)  else False, "combine to knight"))
+        self.combineButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.combine(),lambda: True if self.gui.selected and self.gui.combiner and self.gui.selected.occupant and self.gui.combiner.occupant and  self.gui.selected.village.canCombinetoInfantry(self.gui.selected.occupant, self.gui.combiner.occupant) else False , "combine to infantry"))
+        self.combineButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.combine(),lambda: True if self.gui.selected and self.gui.combiner and self.gui.selected.occupant and self.gui.combiner.occupant and self.gui.selected.village.canCombinetoSoldier(self.gui.selected.occupant, self.gui.combiner.occupant) else False , "combine to soldier"))     
+        self.combineButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.combine(),lambda: True if self.gui.selected and self.gui.combiner and self.gui.selected.occupant and self.gui.combiner.occupant and self.gui.selected.village.canCombinetoKnight(self.gui.selected.occupant, self.gui.combiner.occupant)  else False, "combine to knight"))
         #self.villageButtons.append(Button(-1.1,self.height,.18,.03, lambda: setattr(self.gui, 'show', not self.gui.show), "territories"))
         self.menuButtons = []
         self.menuButtons.append(Button(0,0.2,.2,.03, lambda: self.gui.save(),lambda: True , "save game"))
@@ -535,7 +537,7 @@ class UI:
         self.visible = 0
 
 class Gui:
-    def __init__(self, engine, width, height, name, player):
+    def __init__(self, engine, width, height, name, player, client):
         sys.setrecursionlimit(10000)
         self.height = height
         self.width = width
@@ -561,7 +563,13 @@ class Gui:
         self.zoomloc = glGetUniformLocation(self.shader,'zoom')
         glUniform1f(self.zoomloc,1)
         self.running = True
-        self.client = Client('127.0.0.1', 5000, name, self)
+        self.client = client
+
+        #self.client.inQueue.put(ClientLogin(self.name))
+        #if self.player ==1:
+        #    self.client.inQueue.put(CreateRoom())
+        #else:
+        #    self.client.inQueue.put(JoinRoom(1))
 
         self.mapTex = self.bindTexture("texture.png")
         self.path = Path(self.engine.grid.d)
@@ -935,38 +943,38 @@ class Gui:
         glDisableVertexAttribArray(5)
 
     def buildMeadow(self):
-        self.client.inQueue.put(['applyBuildMeadow', [self.selected.number]])
+        self.client.inQueue.put(TurnData('applyBuildMeadow', [self.selected.number]))
         self.selected.occupant.setBuildingMeadow()
 
     def buildRoad(self):
-        self.client.inQueue.put(['applyBuildRoad', [self.selected.number]])
+        self.client.inQueue.put(TurnData('applyBuildRoad', [self.selected.number]))
         self.selected.occupant.setBuildingRoad()
 
     def upgradeUnit(self, n):
-        self.client.inQueue.put(['applyUpgradeUnit', [self.selected.number, n]])
+        self.client.inQueue.put(TurnData('applyUpgradeUnit', [self.selected.number, n]))
         self.selected.occupant.upgrade(n)
 
     def buildWatchTower(self):
-        self.client.inQueue.put(['applyBuildWatchtower', [self.selected.number]])
+        self.client.inQueue.put(TurnData('applyBuildWatchtower', [self.selected.number]))
         self.selected.buildWatchTower()
 
     def spawnUnit(self, n):
-        self.client.inQueue.put(['applySpawnUnit', [self.selected.number, n]])
+        self.client.inQueue.put(TurnData('applySpawnUnit', [self.selected.number, n]))
         self.selected.village.spawnUnit(self.selected,n)
 
     def upgradeVillage(self):
-        self.client.inQueue.put(['applyUpgradeVillage', [self.selected.number]])
+        self.client.inQueue.put(TurnData('applyUpgradeVillage', [self.selected.number]))
         self.selected.village.upgrade()
 
     def combine(self):
-        self.client.inQueue.put(['applyCombine', [self.selected.number, self.combiner.number]])
+        self.client.inQueue.put(TurnData('applyCombine', [self.selected.number, self.combiner.number]))
         self.selected.village.combine(self.selected.occupant, self.combiner.occupant)
 
     def beginTurn(self):
         if self.engine.rounds and self.engine.turn == 1:
-            self.client.inQueue.put(['growthPhase', []])
+            self.client.inQueue.put(TurnData('growthPhase', []))
             self.engine.growthPhase()
-        self.client.inQueue.put(['beginTurn', [self.player]])
+        self.client.inQueue.put(TurnData('beginTurn', [self.player]))
         self.engine.beginTurn(self.player)
         self.updateGridBuffers()
         self.updateObjectBuffers()
@@ -975,7 +983,7 @@ class Gui:
         self.selected = None
         self.combiner = None
         self.ui.visible = 0
-        self.client.inQueue.put(['applyEndTurn', []])
+        self.client.inQueue.put(TurnData('applyEndTurn', []))
         self.engine.turn = self.engine.turn%len(self.engine.players)+1
         if self.engine.turn == 1:
             self.engine.rounds +=1
@@ -990,24 +998,26 @@ class Gui:
             self.beginTurn()
 
     def run(self):
-        if self.engine.turn == self.player:
-           self.beginTurn()
+        #if self.engine.turn == self.player:
+           #self.beginTurn()
         while self.running:
             clickEvent = False
             if not self.client.outQueue.empty():
                 temp = self.client.outQueue.get()
                 clickEvent = True
-                if temp[0]:
+                if type(temp) == sendRoom:
+                    print(temp.roomId)
+                elif type(temp) == ChatMessage:
+                    self.ui.chat.update(temp.message, self.showChat)
+                elif type(temp) == TurnData:
                     if temp[1] == 'applyEndTurn':
                         self.applyEndTurn()
                     else:
                         try:
-                            getattr(self.engine,temp[1])(*temp[2])
+                            getattr(self.engine,temp.fname)(*temp.fargs)
                         except:
                             print("clients out of sink")
-                else:
-                    self.ui.chat.update(temp[1], self.showChat)
-            
+                    
             for event in pygame.event.get():
                 if event.type == QUIT:
                     pygame.quit()
@@ -1036,12 +1046,12 @@ class Gui:
                             elif event.key == ord(' '):
                                 self.ui.chatString+=" "
                             elif event.key == 13:
-                                self.client.inQueue.put(['message',self.ui.chatString])
+                                self.client.inQueue.put(ChatMessage(self.name,self.name+": "+self.ui.chatString))
                                 self.ui.chat.update("you: "+self.ui.chatString, self.showChat)
                                 self.ui.chatString = ""
                             self.ui.textField.update(self.ui.chatString)
                         except:
-                            print("wat")
+                            pass
                         """ord('a') : lambda: setattr(self, 'trans', [self.trans[0]-.1,self.trans[1]]),
                         ord('d') : lambda: setattr(self, 'trans', [self.trans[0]+.1,self.trans[1]]),
                         ord('w') : lambda: setattr(self, 'trans', [self.trans[0],self.trans[1]+.1]),
@@ -1074,7 +1084,7 @@ class Gui:
                                     break
                             if clicked:
                                 if self.engine.movePath(clicked, self.selected.occupant):
-                                    self.client.inQueue.put(['applyMove', [clicked.number, self.selected.number]])
+                                    self.client.inQueue.put(TurnData('applyMove', [clicked.number, self.selected.number]))
                                     self.selected = clicked
                                     self.path.path([])
                 elif event.type == MOUSEBUTTONUP:
@@ -1218,95 +1228,5 @@ class Gui:
 
 #winning condition
 
-class Wrapper:
-    def __init__(self,name, m = None, f = None, args = None):
-        self.message = m
-        self.sender = name
-        self.fname = f
-        self.fargs = args
 
-class Client:
-    def __init__(self, h, p, n, e):
-        self.inQueue = queue.Queue()
-        self.outQueue = queue.Queue()
-        self.lock = threading.Lock()
-
-        self.host = h
-        self.port = p
-        self.name = n
-        self.engine = e
-         
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.settimeout(2)
-
-        try :
-            self.s.connect((self.host, self.port))
-        except :
-            print ('Unable to connect')
-            sys.exit()
-         
-        print ('Connected to remote host. Start sending messages')
-        #self.prompt()
-
-        self.inputThread = threading.Thread(target=self.send)
-        self.inputThread.daemon = True
-
-        self.outputThread = threading.Thread(target=self.receive)
-        self.outputThread.daemon = True
-
-        self.chatThread = threading.Thread(target=self.chat)
-        self.chatThread.daemon = True
-
-        self.inputThread.start()
-        self.outputThread.start()
-       # self.chatThread.start()
-
-    def receive(self):
-        while True:
-            socket_list = [self.s]
-            read_sockets, write_sockets, error_sockets = select.select(socket_list , [], [])
-            for sock in read_sockets:
-                if sock == self.s:
-                    with self.lock:
-                        data = sock.recv(4096)
-                        if not data :
-                            print ('\nDisconnected from chat server')
-                            sys.exit()
-                        else :
-                            temp = pickle.loads(data)
-                            if temp.message:
-                                #sys.stdout.write("\r"+'<'+temp.sender+'> '+temp.message)
-                                self.outQueue.put([0, temp.message])
-                                #self.prompt()
-                            if temp.fname:
-                                self.outQueue.put([1, temp.fname, temp.fargs])
-                                
-                                #print("\rTurn "+str(self.engine.turn)+"\n<You>",end=" ")
-
-    def prompt(self) :
-        sys.stdout.write('<You> ')
-        sys.stdout.flush()
-
-    def send(self):
-        while True:
-            if not self.inQueue.empty():
-                with self.lock:
-                    #msg = line
-                    t = self.inQueue.get()
-                    if t[0]!= 'message':
-                        temp = Wrapper(self.name, f=t[0], args=t[1])
-                    else:
-                        temp = Wrapper(self.name,m= self.name+": "+t[1])
-                    self.s.send(pickle.dumps(temp,-1))
-                    #self.prompt()
-            else:
-                time.sleep(0.1)
-
-    def chat(self):
-        for line in sys.stdin:
-            with self.lock:
-                msg = line
-                temp = Wrapper(self.name, m = self.name+": "+msg)
-                self.s.send(pickle.dumps(temp,-1))
-                self.prompt()
                 
