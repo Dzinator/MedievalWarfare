@@ -36,9 +36,23 @@ class CreateRoom(BaseClientMessage):
 
 class sendRoom(BaseClientMessage):
     """Server Message: respond to client's createRoom or JoinRoom"""
-    def __init__(self, id):
+    def __init__(self, id, current_game, playerlist):
         super().__init__()
         self.roomId = id
+        self.current_game = current_game
+        self.playerlist = playerlist
+
+class sendSavedGame(BaseClientMessage):
+    """send by client when trying to load a game from disk"""
+    def __init__(self, saved_game):
+        super().__init__()
+        self.saved_game = saved_game
+
+# class receivedGame(BaseClientMessage):
+#     """send by client: indicate ready for game"""
+class startGame(BaseClientMessage):
+    """send by server: to indicate start game"""
+
 
 # in room
 # todo add roomUpdate Msg

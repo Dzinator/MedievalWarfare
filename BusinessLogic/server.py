@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 # define global varaibles
-SERVER_ADDR = ("localhost", 8000)
+SERVER_ADDR = ("", 8000)
 
 # decorators---------------
 def logged_in(f):
@@ -58,6 +58,7 @@ class room():
     # todo consider using lock on this class
     def __init__(self):
         self.players = set()
+        self.current_game = None
 
     def add_player(self, p):
         self.players.add(p)
@@ -233,13 +234,26 @@ class ClientSocket(threading.Thread):
 
     @logged_in
     def handle_joinroom(self, dat):
-        # todo fixthis
-        room_to_join = next(iter(self.server.rooms.values()))
-        self.room = room_to_join
-        if room_to_join:
+        try:
+            self.room = self.server.rooms[dat.roomId]
             self.room.add_player(self)
-        # todo sendRoom(room)
-        pass
+        except Exception:
+            logger.info("trying to join a room that does not exist: {}".format(
+                dat.roomId))
+            return # todo probably want to send a failure msg
+        else:
+            # todo how do we identify a game
+            # todo what need to send about a player
+            self.sendQ.put(sendRoom(id(self.room), self.room.current_game,
+                                    self.room.players))
+
+
+
+        # room_to_join = next(iter(self.server.rooms.values()))
+        # self.room = room_to_join
+        # if room_to_join:
+        #     self.room.add_player(self)
+
 
     @logged_in
     def handle_createroom(self, login_data):
@@ -248,12 +262,17 @@ class ClientSocket(threading.Thread):
         self.room.add_player(self)
         # put the room to server
         self.server.rooms[id(self.room)] = self.room
-        self.sendQ.put(sendRoom(id(self.room)))
+        self.sendQ.put(sendRoom(id(self.room), None, None))
 
     @logged_in
     @in_room
-    def handle_readyforgame(self, login_data):
-        pass
+    def handle_readyforgame(self, dat):
+        self.ready_for_room = True
+        for p in self.room.players:
+            if not p.ready_for_room:
+                return
+        # everyone's ready, start game
+
 
 
     @logged_in
@@ -385,7 +404,7 @@ class Server():
         self.clients = {}  # temporary store for instances of ClientSocket
         self.WORKER_THREADS = worker_threads
         self.rooms = {}
-        self.player_stats = None # initialized in method start
+        self.player_stats = None  # initialized in method start
 
         try:
             server_socket = socket.socket()
