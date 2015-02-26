@@ -565,12 +565,6 @@ class Gui:
         self.running = True
         self.client = client
 
-        #self.client.inQueue.put(ClientLogin(self.name))
-        #if self.player ==1:
-        #    self.client.inQueue.put(CreateRoom())
-        #else:
-        #    self.client.inQueue.put(JoinRoom(1))
-
         self.mapTex = self.bindTexture("texture.png")
         self.path = Path(self.engine.grid.d)
 
