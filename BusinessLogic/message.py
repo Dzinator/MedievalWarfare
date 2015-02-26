@@ -16,9 +16,16 @@ class ClientLogin(BaseClientMessage):
         self.username = username
 
 class GetRoomList(BaseClientMessage):
+    def __init__(self):
+        super().__init__()
+
+class SendRoomList(BaseClientMessage):
+    """send by server: respond for GetRoomList msg"""
     def __init__(self, ids):
         super().__init__()
-        self.roomIds = ids
+        self.room_list = ids
+
+
 
 # in lobby
 class JoinRoom(BaseClientMessage):

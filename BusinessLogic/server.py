@@ -225,6 +225,10 @@ class ClientSocket(threading.Thread):
                     .format(self.username, self.socket_addr))
 
     @logged_in
+    def handle_getroomlist(self, dat):
+        self.sendQ.put(SendRoomList([id(r) for r in self.server.rooms]))
+
+    @logged_in
     @in_room
     def handle_chat_message(self, chat_message):
         if self.room:
@@ -327,6 +331,7 @@ class ClientSocket(threading.Thread):
         dispatcher = {
             # a mapping of clientMessage classes to handler functions
             ClientLogin.__name__: self.handle_login,
+            GetRoomList.__name__: self.handle_getroomlist,
             JoinRoom.__name__: self.handle_joinroom,
             CreateRoom.__name__: self.handle_createroom,
             ReadyForGame.__name__: self.handle_readyforgame,
