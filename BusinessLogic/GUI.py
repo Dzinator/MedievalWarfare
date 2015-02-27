@@ -996,7 +996,7 @@ class Gui:
            #self.beginTurn()
         while self.running:
             clickEvent = False
-            if not self.client.outGametQueue.empty():
+            if not self.client.outGameQueue.empty():
                 temp = self.client.outGameQueue.get()
                 clickEvent = True
                 if type(temp) == ChatMessage:
