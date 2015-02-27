@@ -51,7 +51,7 @@ class Client:
                             if type(temp) == ChatMessage or type(temp) == TurnData:
                                 self.outGameQueue.put(temp)
                             else:
-                                self.outLauncherQueue(temp)
+                                self.outLauncherQueue.put(temp)
 
     def recv_from_server(self, my_sock):
         # ----START HELPER FUNCTION----
