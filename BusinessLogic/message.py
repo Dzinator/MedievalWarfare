@@ -67,6 +67,9 @@ class sendSavedGame(BaseClientMessage):
 #     """send by client: indicate ready for game"""
 class startGame(BaseClientMessage):
     """send by server: to indicate start game"""
+    def __init__(self, seed):
+        super().__init__()
+        self.seed = seed
 
 
 # in room
