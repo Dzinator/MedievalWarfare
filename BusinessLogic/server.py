@@ -115,8 +115,8 @@ class ClientSocket(threading.Thread):
             header = "{}{}".format(len(pmessage), "\n").encode()
             self.socket.sendall(header + pmessage)
         except Exception as e:
-            logger.error("failed to send to socket: {}".format(
-                self.socket_addr))
+            # logger.error("failed to send to socket: {}".format(
+            #     self.socket_addr))
             self.close()
             raise
         return
@@ -156,15 +156,19 @@ class ClientSocket(threading.Thread):
     def get_special_player_list(self):
         """used to sendRoom"""
         player_l = []
+        # player_l = {}
         for pp in self.room.players:
             username = pp.username
             ready = pp.ready_for_room
             wins = self.server.player_stats[username]["wins"]
             games = self.server.player_stats[username]["games"]
             player_l.append(
-                {"username": username, "ready": ready, "wins": wins,
+            {"username": username, "ready": ready, "wins": wins,
                  "games": games})
+            # player_l[username] = {"username": username, "ready": ready,
+            #                       "wins": wins, "games": games}
         return player_l
+
     # ----END HELPER FUNCTION----
 
     def recv(self):
@@ -211,7 +215,7 @@ class ClientSocket(threading.Thread):
         if self.room:
             self.handle_leaveroom(None)
         # set the player_stat to logged out
-        if not self.username:
+        if self.username:
             self.server.player_stats[self.username]["status"] = False
         self.socket.close()
         self.server.drop_connection(self.socket)
@@ -271,10 +275,10 @@ class ClientSocket(threading.Thread):
 
 
 
-                    # room_to_join = next(iter(self.server.rooms.values()))
-                    # self.room = room_to_join
-                    # if room_to_join:
-                    # self.room.add_player(self)
+                # room_to_join = next(iter(self.server.rooms.values()))
+                # self.room = room_to_join
+                # if room_to_join:
+                # self.room.add_player(self)
 
 
     @logged_in
@@ -304,8 +308,7 @@ class ClientSocket(threading.Thread):
         seed = randint(0, 10000000)
         temp = self.get_special_player_list()
         for i, p in enumerate(self.room.players):
-            p.sendQ.put(startGame(seed, temp, i))
-
+            p.sendQ.put(startGame(seed, temp, i + 1))
 
 
     @logged_in
@@ -340,6 +343,7 @@ class ClientSocket(threading.Thread):
             for p in self.room.players:
                 if p is not self:
                     p.sendQ.put(turndata)
+            logger.error(str(turndata.fname) +"|"+ str(turndata.fargs))
 
     @logged_in
     @in_room
