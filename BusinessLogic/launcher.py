@@ -177,7 +177,7 @@ class Main(QWidget):
         buttons = QVBoxLayout()
         refresh = HoverButton('Login', self)
         refresh.setFixedSize(100,60)
-        refresh.clicked.connect(lambda: self.dispatcher.client.inQueue.put(ClientLogin(username.text())) or setattr(self.dispatcher.name, username.text()) )
+        refresh.clicked.connect(lambda: self.dispatcher.client.inQueue.put(ClientLogin(username.text())) or setattr(self.dispatcher, 'name', username.text()) )
         buttons.addWidget(refresh)
 
         spacer2 = QWidget(self)
