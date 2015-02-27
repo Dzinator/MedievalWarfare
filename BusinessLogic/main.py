@@ -269,7 +269,7 @@ class Grid:
         return path
 
 class Engine:
-    def __init__(self, Id, name, player, seed):
+    def __init__(self, Id, name, player, seed, client):
         #temp
         self.gameId = random.randint(0,1000)
         self.turn = 1
@@ -283,7 +283,7 @@ class Engine:
         self.grid = Grid(1, self.width, self.height, self)
         self.grid.populateMap(self.players)
         
-        self.Gui = Gui(self, self.width, self.height, name, player)
+        self.Gui = Gui(self, self.width, self.height, name, player, client)
 
         self.run()
     

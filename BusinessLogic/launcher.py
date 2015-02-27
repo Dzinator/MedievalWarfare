@@ -11,6 +11,7 @@ class ThreadDispatcher(QThread):
         QThread.__init__(self)
         self.client = Client('142.157.148.89', 8000, "aaron", self)
         self.parent = parent
+        self.name = ""
         self.running = True
 
     def run(self):
@@ -25,7 +26,7 @@ class ThreadDispatcher(QThread):
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.addItems(st)))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.name.setText(str(msg.roomId)) ))
                 elif type(msg) == startGame:
-                    print(msg.seed)
+                    QApplication.postEvent(self.parent, _Event(lambda:Engine(1, self.name, 1, msg.seed,self.dispatcher.client)))
                 elif type(msg) ==LoginAck:
                     if msg.success:
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.transition(1)))
@@ -176,7 +177,7 @@ class Main(QWidget):
         buttons = QVBoxLayout()
         refresh = HoverButton('Login', self)
         refresh.setFixedSize(100,60)
-        refresh.clicked.connect(lambda: self.dispatcher.client.inQueue.put(ClientLogin(username.text())))
+        refresh.clicked.connect(lambda: self.dispatcher.client.inQueue.put(ClientLogin(username.text())) or setattr(self.dispatcher.name, username.text()) )
         buttons.addWidget(refresh)
 
         spacer2 = QWidget(self)
