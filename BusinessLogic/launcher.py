@@ -21,7 +21,8 @@ class ThreadDispatcher(QThread):
                 if type(msg) == sendRoom:
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.clear()))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.transition(2)))
-                    QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.addItems(msg.playerlist)))
+                    st =[ p.get('username', 'unknown') +"         status: "+("ready" if p.get('ready', False) else "not ready") for p in msg.playerlist]
+                    QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.addItems(st)))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.name.setText(str(msg.roomId)) ))
                 elif type(msg) ==LoginAck:
                     if msg.success:
@@ -255,7 +256,8 @@ class Main(QWidget):
         buttons.addWidget(combo)
         join = HoverButton('Ready', self)
         join.setFixedSize(100,60)
-        join.clicked.connect(lambda: Engine(1, "aaron", 1, 89,self.dispatcher.client)) #subprocess.Popen("python main.py", shell = True)
+        join.clicked.connect(lambda: self.dispatcher.client.inQueue.put(ReadyForGame())) #subprocess.Popen("python main.py", shell = True)
+        #Engine(1, "aaron", 1, 89,self.dispatcher.client)
         buttons.addWidget(join)
 
         refresh = HoverButton('Back', self)
