@@ -269,13 +269,14 @@ class Grid:
         return path
 
 class Engine:
-    def __init__(self, Id, name, player, seed, client):
+    def __init__(self, Id, name, player, seed, client, nplayers):
+        print(name, player, seed, client, nplayers)
         #temp
         self.gameId = random.randint(0,1000)
         self.turn = 1
         self.rounds = 0
         self.roundsPlayed = 0
-        self.initPlayers(1)
+        self.initPlayers(nplayers)
         self.width = 1200
         self.height = 700
         self.seednumber = seed

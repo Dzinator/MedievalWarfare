@@ -26,7 +26,7 @@ class ThreadDispatcher(QThread):
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.addItems(st)))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.name.setText(str(msg.roomId)) ))
                 elif type(msg) == startGame:
-                    QApplication.postEvent(self.parent, _Event(lambda:Engine(1, self.name, 1, msg.seed,self.dispatcher.client)))
+                    QApplication.postEvent(self.parent, _Event(lambda:Engine(1, self.name, msg.player_turn, msg.seed,self.client, len(msg.player_list))))
                 elif type(msg) ==LoginAck:
                     if msg.success:
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.transition(1)))
