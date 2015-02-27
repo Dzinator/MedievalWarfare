@@ -16,8 +16,8 @@ class ThreadDispatcher(QThread):
 
     def run(self):
         while self.running:
-            if not self.client.outQueue.empty():
-                msg = self.client.outQueue.get()
+            if not self.client.outLauncherQueue.empty():
+                msg = self.client.outLauncherQueue.get()
                 #self.transition(2) or self.name.setText(
                 if type(msg) == sendRoom:
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.clear()))

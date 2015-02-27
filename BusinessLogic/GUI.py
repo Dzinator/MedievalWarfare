@@ -996,16 +996,13 @@ class Gui:
            #self.beginTurn()
         while self.running:
             clickEvent = False
-            if not self.client.outQueue.empty():
-                temp = self.client.outQueue.get()
+            if not self.client.ouGametQueue.empty():
+                temp = self.client.outGameQueue.get()
                 clickEvent = True
-                if type(temp) == sendRoom:
-                    print(temp.roomId)
-                elif type(temp) == ChatMessage:
+                if type(temp) == ChatMessage:
                     self.ui.chat.update(temp.message, self.showChat)
                 elif type(temp) == TurnData:
                     if temp.fname == 'applyEndTurn':
-                        print("hello")
                         self.applyEndTurn()
                     else:
                         try:

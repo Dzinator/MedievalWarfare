@@ -3,7 +3,8 @@ import queue, threading, socket, time, select, pickle, sys, os
 class Client:
     def __init__(self, h, p, n, e):
         self.inQueue = queue.Queue()
-        self.outQueue = queue.Queue()
+        self.outGameQueue = queue.Queue()
+        self.outLauncherQueue = queue.Queue()
         self.lock = threading.Lock()
 
         self.host = h
@@ -47,7 +48,10 @@ class Client:
                             print ('\nDisconnected from chat server')
                             sys.exit()
                         else :
-                            self.outQueue.put(temp)
+                            if type(temp) == ChatMessage or type(temp) == TurnData:
+                                self.outGameQueue.put(temp)
+                            else:
+                                self.outLauncherQueue(temp)
 
     def recv_from_server(self, my_sock):
         # ----START HELPER FUNCTION----
