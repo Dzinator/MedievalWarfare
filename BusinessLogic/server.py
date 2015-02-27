@@ -343,7 +343,6 @@ class ClientSocket(threading.Thread):
             for p in self.room.players:
                 if p is not self:
                     p.sendQ.put(turndata)
-            logger.error(str(turndata.fname) +"|"+ str(turndata.fargs))
 
     @logged_in
     @in_room
@@ -519,7 +518,10 @@ class Server():
 
         if os.path.exists(self.data_file):
             with open(self.data_file, "rb") as f:
-                self.player_stats = pickle.load(f)
+                try:
+                    self.player_stats = pickle.load(f)
+                except Exception as e:
+                    pass
         else:
             open(self.data_file, 'wb+').close()
         if not self.player_stats:
