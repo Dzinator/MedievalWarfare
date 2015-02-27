@@ -302,8 +302,9 @@ class ClientSocket(threading.Thread):
                 return
         # everyone's ready, start game
         seed = randint(0, 10000000)
-        for p in self.room.players:
-            p.sendQ.put(startGame(seed))
+        temp = self.get_special_player_list()
+        for i, p in enumerate(self.room.players):
+            p.sendQ.put(startGame(seed, temp, i))
 
 
 
