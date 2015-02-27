@@ -1004,7 +1004,7 @@ class Gui:
                 elif type(temp) == ChatMessage:
                     self.ui.chat.update(temp.message, self.showChat)
                 elif type(temp) == TurnData:
-                    if temp[1] == 'applyEndTurn':
+                    if temp.fname == 'applyEndTurn':
                         self.applyEndTurn()
                     else:
                         try:
