@@ -16,7 +16,7 @@ class ClientLogin(BaseClientMessage):
 class LoginAck(BaseClientMessage):
     """send by server: response for ClientLogin msg"""
     def __init__(self, success):
-        """:param success: bool"""
+        """:type param success: bool"""
         super().__init__()
         self.success = success
 
@@ -49,8 +49,8 @@ class startGame(BaseClientMessage):
     def __init__(self, seed, player_list, player_turn):
         """in the parameters: seed is a random number to seed game creation
         player_turn is a number between 1-4
-        :param seed: int
-        :param player_turn: int"""
+        :type seed: int
+        :type player_turn: int"""
         super().__init__()
         self.seed = seed
         self.player_list = player_list
@@ -60,9 +60,12 @@ class startGame(BaseClientMessage):
 # in room
 
 class sendRoom(BaseClientMessage):
-    """send by server: a new copy of the room data
-    :param current_game: str"""
+    """send by server: a new copy of the room data"""
     def __init__(self, roomId, current_game, playerlist):
+        """
+        :type roomId: int
+        :type current_game: str
+        """
         super().__init__()
         self.roomId = roomId
         self.current_game = current_game
@@ -103,14 +106,35 @@ class sendSavedGame(BaseClientMessage):
         self.saved_game = saved_game
 
 class LeaveGame(BaseClientMessage):
-    """while in a game, client indicate she wants to leave the game"""
+    """send by client: leave game"""
     def __init__(self):
         super().__init__()
-        pass
 
 class ChangeMap(BaseClientMessage):
-    """This message is send by the host to change the current map"""
+    """This message is send by the host to change the current map
+    send either a saved_game or a game_id of the default games"""
+    def __init__(self, game_id=None, saved_game=None):
+        super().__init__()
+        self.game_id = game_id
+        self.saved_game = saved_game
+
+class NewMap(BaseClientMessage):
+    """send by server: a new bit map loaded from client"""
+    def __init__(self, new_game, game_id=None):
+        super().__init__()
+        self.new_game = new_game
+
+class WinGame(BaseClientMessage):
+    """send by client: won current game"""
     def __init__(self):
         super().__init__()
-        pass
+
+class GameEnd(BaseClientMessage):
+    """send by server: indicate the end of current game"""
+    def __init__(self):
+        super().__init__()
+
+
+
+
 

@@ -35,6 +35,7 @@ def logged_in(f):
         else:
             logger.error("Unable to handle {} message, player needs to be "
                          "logged in".format(msg.__class__.__name__))
+
     return _wrapper
 
 
@@ -47,24 +48,43 @@ def in_room(f):
         else:
             logger.error("Unable to handle {} message, player needs to be "
                          "in a room".format(msg.__class__.__name__))
+
     return _wrapper
+
+
 # decorators end---------------
 
 
 class Room():
     def __init__(self):
         self.players = set()
-        self.current_game = ""
+        self.current_game = ""  # game id
+        self.game = None
         self.Id = id(Room)
+        self.lock = threading.Lock()
 
     def add_player(self, p):
-        self.players.add(p)
+        with self.lock:
+            self.players.add(p)
 
     def remove_player(self, p):
-        self.players.remove(p)
+        with self.lock:
+            self.players.remove(p)
 
     def is_empty(self):
-        return not self.players
+        with self.lock:
+            return not self.players
+
+    def change_map(self, game_id=None, saved_game=None):
+        """pass in either a saved_game or a map_id
+        if saved_game is passed, game_id is calculated"""
+        with self.lock:
+            if saved_game:
+                self.game = saved_game
+                self.current_game = id(self.game)
+            elif game_id:
+                self.current_game = game_id
+
 
 class ClientSocket(threading.Thread):
     """a wrapper on the socket from clients"""
@@ -86,6 +106,7 @@ class ClientSocket(threading.Thread):
         self.thread_name = "{}".format(str(hex(id(self)))[:5:-1])
         self.sendQ = queue.Queue()
         self.room = None
+        """:type : Room""" # type hint for self.room
         self.ready_for_room = False
         self.close_lock = threading.Lock()
         self.is_closed = False
@@ -130,13 +151,20 @@ class ClientSocket(threading.Thread):
         self.room = None
         self.ready_for_room = False
 
-    def update_player_stats(self, wins=None, games=None, status=None):
+    def update_player_stats(self, new_win=False, new_game=False, status=None):
+        """
+        increment wins and games, update player status
+        :type param new_win: bool
+        :type param new_game: bool
+        :type param status: bool
+        :return:
+        """
         player_stats = self.server.player_stats.get(self.username)
         if player_stats:
-            if wins is not None:
-                player_stats["wins"] = wins
-            if games is not None:
-                player_stats["games"] = games
+            if new_win:
+                player_stats["wins"] += 1
+            if new_game:
+                player_stats["games"] += 1
             if status is not None:
                 player_stats["status"] = status
 
@@ -225,7 +253,7 @@ class ClientSocket(threading.Thread):
             new_pmsg = recv_real_message(self.socket, message_len)  # pickled
             if not new_pmsg:
                 return None
-        except Exception: # connection broken
+        except Exception:  # connection broken
             return None
         try:
             new_msg = pickle.loads(new_pmsg)
@@ -294,9 +322,10 @@ class ClientSocket(threading.Thread):
             self.room = self.server.rooms[dat.roomId]
             self.room.add_player(self)
         except Exception:
-            logger.info("trying to join a room that does not exist: {}".format(
-                dat.roomId))
-            return  # todo probably want to send a failure msg
+            logger.info("trying to join a room that does not exist: {}"
+                        .format(dat.roomId))
+            # send a new room list
+            self.sendQ.put(SendRoomList(self.server.get_all_room_ids()))
         else:
             self.broadcast_msg(self.make_sendRoom_msg())
 
@@ -318,18 +347,26 @@ class ClientSocket(threading.Thread):
             seed = randint(0, 10000000)
             temp = self.get_player_list()
             for i, p in enumerate(self.room.players):
+                p.ready_for_room = False
                 p.sendQ.put(startGame(seed, temp, i + 1))
 
 
     @in_room
-    def handle_leaveroom(self, msg):
+    def handle_leaveroom(self, dat):
         self.leave_room()
         self.sendQ.put(SendRoomList(self.server.get_all_room_ids()))
 
 
     @in_room
-    def handle_changemap(self, login_data):
-        pass
+    def handle_changemap(self, game_dat):
+        # todo make this work
+        if game_dat.game_id:
+            self.room.change_map(game_id=game_dat.game_id)
+            self.broadcast_msg(self.make_sendRoom_msg())
+        elif game_dat.saved_game:
+            self.room.change_map(saved_game=game_dat.saved_game)
+            # todo should a copy send to self?
+            self.broadcast_msg(NewMap(game_dat.saved_game), exclude_self=True)
 
 
     @in_room
@@ -337,15 +374,20 @@ class ClientSocket(threading.Thread):
         if self.room:
             self.broadcast_msg(turndata, exclude_self=True)
 
+
     @in_room
-    def handle_end_game(self, dat):
-        """send end game msg to all player in room
-        call server method updatePlayerStats
-        :param: dat: win/lose"""
-        # do_send(all_other_player_in_room, EndGameMsg(bool))
-        # self.server.updatePlayerStats()
-        # everybody go back to the room page
-        pass
+    def handle_wingame(self, dat):
+        """update player_stats
+        send GameEnd msg to everyone in room
+        send SendRoomList msg to everyone in room"""
+        # todo make this work
+        for p in self.room.players:
+            if p is self:
+                p.update_player_stats(new_game=True, new_win=True)
+            else:
+                p.update_player_stats(new_game=True)
+        self.broadcast_msg(GameEnd())
+        self.broadcast_msg(SendRoomList(self.server.get_all_room_ids()))
 
 
     @in_room
@@ -368,6 +410,7 @@ class ClientSocket(threading.Thread):
             LeaveRoom.__name__: self.handle_leaveroom,
             ChangeMap.__name__: self.handle_changemap,
             TurnData.__name__: self.handle_turndata,
+            WinGame.__name__: self.handle_wingame,
             LeaveGame.__name__: self.handle_leavegame,
             ChatMessage.__name__: self.handle_chat_message,
         }
@@ -378,7 +421,8 @@ class ClientSocket(threading.Thread):
                 "message class does not exist {}".format(msg.__class__))
         else:  # found handler for the message
             try:
-                logger.info("handling {} message".format(msg.__class__.__name__))
+                logger.info(
+                    "handling {} message".format(msg.__class__.__name__))
                 handler(msg)
             except Exception as e:
                 logger.error("failed to handle message")
@@ -504,6 +548,7 @@ class Server():
     def start(self):
         # initilize player_stats
         import os.path
+
         if os.path.exists(self.data_file):
             with open(self.data_file, "rb") as f:
                 try:
