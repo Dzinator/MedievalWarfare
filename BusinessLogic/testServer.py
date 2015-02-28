@@ -94,6 +94,7 @@ class testServer(unittest.TestCase):
         send_to_server(Juliet, loginM)
         Juliet.close()
         # reconnect and re-login
+        time.sleep(0.5)
         Juliet = socket.socket()
         Juliet.connect(SERVER_ADDR)
         send_to_server(Juliet, loginM)
@@ -130,22 +131,31 @@ class testServer(unittest.TestCase):
         Juliet = socket.socket()
         Juliet.connect(SERVER_ADDR)
         send_to_server(Juliet, ClientLogin("Juliet"))
+        recv_from_server(Juliet) # LoginAck msg
+        recv_from_server(Juliet) # RoomList msg
         Romeo = socket.socket()
         Romeo.connect(SERVER_ADDR)
         send_to_server(Romeo, ClientLogin("Romeo"))
+        recv_from_server(Romeo) # LoginAck msg
+        recv_from_server(Romeo) # RoomList msg
 
         # Juliet create a room
         send_to_server(Juliet, CreateRoom())
         # recv the room
         receivedM = recv_from_server(Juliet)
-        assert(receivedM.roomId is not None)
+        self.assertIsInstance(receivedM, sendRoom)
+        self.assertTrue(receivedM.roomId)
         # Romeo join the room
-        time.sleep(1) # wait for room to be created on server
         send_to_server(Romeo, JoinRoom(receivedM.roomId))
         # recv the room
-        # todo uncomment this line after finished handle_joinroom
-        # receivedM2 = recv_from_server(Romeo)
-        # assert(receivedM2 == receivedM)
+        receivedM2 = recv_from_server(Romeo)
+        self.assertIsInstance(receivedM2, sendRoom)
+        self.assertEqual(receivedM.roomId, receivedM2.roomId)
+        # Juliet would recv a sendRoom msg from server as well
+        receivedM3 = recv_from_server(Juliet)
+        self.assertIsInstance(receivedM3, sendRoom)
+        self.assertTrue(receivedM3.playerlist)
+        self.assertEqual(receivedM3.playerlist, receivedM2.playerlist)
         Juliet.close()
         Romeo.close()
 
@@ -153,8 +163,6 @@ class testServer(unittest.TestCase):
         """test the decorator logged_in in server.py"""
         Juliet = socket.socket()
         Juliet.connect(SERVER_ADDR)
-        # send_to_server(Juliet, ClientLogin("Juliet"))
-
         # try to create a room without logging in, this should appear as a
         # error on the server log
         send_to_server(Juliet, CreateRoom())

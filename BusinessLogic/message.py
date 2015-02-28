@@ -1,73 +1,56 @@
-# log in
-
 class BaseClientMessage():
     """This is the base message that all client message should inherite
     Don't use this class directly"""
-
     def __init__(self):
         pass
 
+# log in
 
 class ClientLogin(BaseClientMessage):
-    """This is the message sent by the client when loggin in"""
+    """send by client: log in with a username"""
 
     def __init__(self, username):
         super().__init__()
         self.username = username
 
 class LoginAck(BaseClientMessage):
-    """send by server: respond for ClientLogin msg"""
-    def __init__(self, suc):
-        """ :param suc: bool """
+    """send by server: response for ClientLogin msg"""
+    def __init__(self, success):
+        """:param success: bool"""
         super().__init__()
-        self.success = suc
+        self.success = success
 
+# in lobby
 
 class GetRoomList(BaseClientMessage):
+    """send by client: get a list of rooms in lobby"""
     def __init__(self):
         super().__init__()
 
 class SendRoomList(BaseClientMessage):
     """send by server: respond for GetRoomList msg"""
-    def __init__(self, ids):
+    def __init__(self, room_list):
         super().__init__()
-        self.room_list = ids
+        self.room_list = room_list
 
-
-
-# in lobby
 class JoinRoom(BaseClientMessage):
-    """The message send when client had chosen a room to join"""
-    def __init__(self, id):
+    """send by client: to join a room indicate by room id"""
+    def __init__(self, roomId):
         super().__init__()
-        self.roomId = id
-
+        self.roomId = roomId
 
 class CreateRoom(BaseClientMessage):
-    """The message send when the client choose to create a new room"""
-
+    """send by client: to create a new room"""
     def __init__(self):
         super().__init__()
 
-class sendRoom(BaseClientMessage):
-    """Server Message: respond to client's createRoom or JoinRoom"""
-    def __init__(self, id, current_game, playerlist):
-        super().__init__()
-        self.roomId = id
-        self.current_game = current_game
-        self.playerlist = playerlist
-
-class sendSavedGame(BaseClientMessage):
-    """send by client when trying to load a game from disk"""
-    def __init__(self, saved_game):
-        super().__init__()
-        self.saved_game = saved_game
-
-# class receivedGame(BaseClientMessage):
-#     """send by client: indicate ready for game"""
 class startGame(BaseClientMessage):
     """send by server: to indicate start game"""
     def __init__(self, seed, player_list, player_turn):
+        """in the parameters: seed is a random number to seed game creation
+        player_turn is a number between 1-4
+        :param seed: int
+        :param player_turn: int"""
         super().__init__()
         self.seed = seed
         self.player_list = player_list
@@ -75,50 +58,35 @@ class startGame(BaseClientMessage):
 
 
 # in room
-# todo add roomUpdate Msg
-# todo consider adding a failuer msg when not log in as bad username and such
-class LeaveRoom(BaseClientMessage):
-    """This message is send by the client when leaving a room he/she is in"""
 
+class sendRoom(BaseClientMessage):
+    """send by server: a new copy of the room data
+    :param current_game: str"""
+    def __init__(self, roomId, current_game, playerlist):
+        super().__init__()
+        self.roomId = roomId
+        self.current_game = current_game
+        self.playerlist = playerlist
+
+class LeaveRoom(BaseClientMessage):
+    """send by client: indicate leaving a room"""
     def __init__(self):
         super().__init__()
-        pass
-
 
 class ReadyForGame(BaseClientMessage):
-    """This message is send to indicate client ready for a game to start"""
-
+    """send by client: indicate ready for a game"""
     def __init__(self):
         super().__init__()
-        pass
 
-
-class ChangeMap(BaseClientMessage):
-    """This message is send by the host to change the current map"""
-
-    def __init__(self):
-        super().__init__()
-        pass
 
 
 # in game
 class TurnData(BaseClientMessage):
-    """active player send this when she finished her turn"""
-
+    """send by client: for a game turn"""
     def __init__(self, f, args):
         super().__init__()
         self.fname = f
         self.fargs = args
-        # todo add document
-        # self.turn_data = turn_data
-
-
-class LeaveGame(BaseClientMessage):
-    """while in a game, client indicate she wants to leave the game"""
-
-    def __init__(self):
-        super().__init__()
-        pass
 
 
 class ChatMessage(BaseClientMessage):
@@ -126,3 +94,23 @@ class ChatMessage(BaseClientMessage):
         super().__init__()
         self.sender = sender
         self.message = message
+
+# not used
+class sendSavedGame(BaseClientMessage):
+    """send by client when trying to load a game from disk"""
+    def __init__(self, saved_game):
+        super().__init__()
+        self.saved_game = saved_game
+
+class LeaveGame(BaseClientMessage):
+    """while in a game, client indicate she wants to leave the game"""
+    def __init__(self):
+        super().__init__()
+        pass
+
+class ChangeMap(BaseClientMessage):
+    """This message is send by the host to change the current map"""
+    def __init__(self):
+        super().__init__()
+        pass
+
