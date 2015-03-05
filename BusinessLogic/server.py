@@ -309,7 +309,7 @@ class ClientSocket(threading.Thread):
             self.server.drop_connection(self.socket)
             self.is_closed = True
 
-    def handle_login(self, login_message):
+    def handle_clientlogin(self, login_message):
         """link client socket to client username"""
         self.username = login_message.username
         self.update_thread_name()
@@ -337,7 +337,7 @@ class ClientSocket(threading.Thread):
         self.sendQ.put(SendRoomList(self.server.all_room_ids))
 
     @in_room
-    def handle_chat_message(self, chat_message):
+    def handle_chatmessage(self, chat_message):
         self.broadcast_msg(chat_message, exclude_self=True)
 
     @logged_in
@@ -428,32 +428,17 @@ class ClientSocket(threading.Thread):
         verify and dispatch messages to different handler
         :type msg: BaseClientMessage
         """
-        dispatcher = {
-            # a mapping of clientMessage classes to handler functions
-            ClientLogin.__name__: self.handle_login,
-            GetRoomList.__name__: self.handle_getroomlist,
-            JoinRoom.__name__: self.handle_joinroom,
-            CreateRoom.__name__: self.handle_createroom,
-            ReadyForGame.__name__: self.handle_readyforgame,
-            LeaveRoom.__name__: self.handle_leaveroom,
-            ChangeMap.__name__: self.handle_changemap,
-            TurnData.__name__: self.handle_turndata,
-            WinGame.__name__: self.handle_wingame,
-            LeaveGame.__name__: self.handle_leavegame,
-            ChatMessage.__name__: self.handle_chat_message,
-        }
+        msg_class = msg.__class__.__name__
+        handler = getattr(self, "handle_%s" % msg_class.lower())
+        if not handler:
+            logger.error("No handler for message class {}".format(msg_class))
+        # found handler for the message
+        logger.info("handling {} message".format(msg.__class__.__name__))
         try:
-            handler = dispatcher[msg.__class__.__name__]
-        except KeyError as ke:
-            logger.error(
-                "message class does not exist {}".format(msg.__class__))
-        else:  # found handler for the message
-            logger.info("handling {} message".format(msg.__class__.__name__))
-            try:
-                handler(msg)
-            except Exception as e:
-                logger.error("failed to handle message")
-                logger.exception(e)
+            handler(msg)
+        except Exception as e:
+            logger.error("failed to handle message")
+            logger.exception(e)
 
     def do_send(self):
         """
@@ -533,9 +518,8 @@ class Server():
 
     def make_new_player(self, username):
         """create a new player profile and add to player_stats"""
-        if not self.player_stats.get(username):
-            new_player_stats = {"wins": 0, "games": 0, "status": False}
-            self.player_stats[username] = new_player_stats
+        new_player_stats = {"wins": 0, "games": 0, "status": False}
+        self.player_stats.setdefault(username, {new_player_stats})
 
     def drop_connection(self, dropped_client_socket):
         """
