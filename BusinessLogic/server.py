@@ -267,10 +267,11 @@ class ClientSocket(threading.Thread):
             :type length: int
             """
             buf = b''
-            while length != len(buf):
+            while length > 0:
                 temp_buf = sock.recv(length)
                 if len(temp_buf) == 0:  # client disconnected
                     return b''
+                length -= len(temp_buf)
                 buf += temp_buf
             return buf
 
