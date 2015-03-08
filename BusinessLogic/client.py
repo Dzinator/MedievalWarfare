@@ -1,17 +1,20 @@
 from message import *
 import queue, threading, socket, time, select, pickle, sys, os
+from pickle import UnpicklingError
 class Client:
-    def __init__(self, h, p, n, e):
+    def __init__(self, h, p, n, e, reconnect=True):
         self.inQueue = queue.Queue()
         self.outGameQueue = queue.Queue()
         self.outLauncherQueue = queue.Queue()
         self.lock = threading.Lock()
+        self.connection_broken = False
 
         self.host = h
         self.port = p
         self.name = n
         self.engine = e
-         
+        self.reconnect = reconnect
+
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.settimeout(2)
 
@@ -33,20 +36,82 @@ class Client:
         self.inputThread.start()
         self.outputThread.start()
 
+        if self.reconnect:
+            self.monitorThread = threading.Thread(target=self.do_reconnect)
+            self.monitorThread.daemon = True
+            self.monitorThread.start()
+
+    def do_reconnect(self):
+        """a monitor thread will run this function and monitor if connection
+        is broken, if so, will try to re-establish connection to server"""
+        while True:
+            if self.reconnect and self.connection_broken:
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(2)
+                    s.connect((self.host, self.port))
+                except Exception:
+                    print("reconnection failed, try again in 1 second")
+                    time.sleep(1)
+                else:
+                    self.connection_broken = False
+                    self.s = s
+                    # we empty the inQueue and just ignore any input made
+                    # by player during connection drop for synchronization
+                    # reason
+                    while not self.inQueue.empty():
+                        self.inQueue.get()
+                    # inputThread is likely to be alive if it's blocking on
+                    # the inQueue, if so, it's ok because we will already
+                    # swaped our socket. Otherwise, we restart it
+                    if not self.inputThread.isAlive():
+                        self.inputThread = threading.Thread(target=self.send)
+                        self.inputThread.daemon = True
+                        self.inputThread.start()
+                    # outputThread is likely to be dead, if so, we restart
+                    # it as well
+                    if not self.outputThread.isAlive():
+                        self.outputThread = threading.Thread(target=self.receive)
+                        self.outputThread.daemon = True
+                        self.outputThread.start()
+                    else:
+                        # this is too unpredictable and shouldn't have
+                        # happened. It's better just terminate the program
+                        print("outputThread still alive after connection "
+                              "broken, this should not have happened. Exiting")
+                        return
+                    print("reconnected to server")
+            else:
+                # just wait for connection to break
+                time.sleep(1)
+
+
     def receive(self):
         while True:
             socket_list = [self.s]
-            read_sockets, write_sockets, error_sockets = select.select(socket_list , [], [])
+            try:
+                read_sockets, write_sockets, error_sockets = select.select(socket_list , [], [])
+            except Exception:
+                self.connection_broken = True
+                print("connection broken")
+                return
+
             for sock in read_sockets:
                 if sock == self.s:
                     with self.lock:
                         try:
                             temp = self.recv_from_server(self.s)
+                        except UnpicklingError as upe:
+                            print("message format is bad: {}".format(
+                                upe.args[0]))
                         except Exception:
+                            self.connection_broken = True
+                            print("connection broken")
                             return
                         if not temp:
-                            print ('\nDisconnected from chat server')
-                            sys.exit()
+                            self.connection_broken = True
+                            print("connection borken")
+                            return
                         else :
                             if type(temp) == ChatMessage or type(temp) == TurnData:
                                 self.outGameQueue.put(temp)
@@ -80,7 +145,10 @@ class Client:
         pmsg_len = receive_len_header(my_sock)
         pmsg = recv_real_message(my_sock, pmsg_len)
 
-        msg = pickle.loads(pmsg)
+        try:
+            msg = pickle.loads(pmsg)
+        except Exception:
+            raise UnpicklingError(pmsg)
         return msg
 
     def send(self):
@@ -89,7 +157,11 @@ class Client:
                 with self.lock:
                     temp = self.inQueue.get()
                     pMsg = pickle.dumps(temp, -1)
-                    self.s.sendall("{}{}".format(len(pMsg), "\n").encode())
-                    self.s.sendall(pMsg)
+                    try:
+                        self.s.sendall("{}{}".format(len(pMsg), "\n").encode())
+                        self.s.sendall(pMsg)
+                    except Exception:
+                        self.connection_broken = True
+                        return
             else:
                 time.sleep(0.1)
