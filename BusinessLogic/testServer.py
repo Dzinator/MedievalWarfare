@@ -98,7 +98,9 @@ class testServer(unittest.TestCase):
         time.sleep(0.5)
         Juliet = socket.socket()
         Juliet.connect(SERVER_ADDR)
-        send_to_server(Juliet, loginM)
+        reconnectM = ReconnectRequest("Juliet")
+        send_to_server(Juliet, reconnectM)
+        time.sleep(0.5)
         Juliet.close()
 
     def old_testChat(self):

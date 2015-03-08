@@ -61,6 +61,8 @@ class Client:
                     # reason
                     while not self.inQueue.empty():
                         self.inQueue.get()
+                    # put the ReconnectRequest message on the top of inQueue
+                    self.inQueue.put(ReconnectRequest(self.name))
                     # inputThread is likely to be alive if it's blocking on
                     # the inQueue, if so, it's ok because we will already
                     # swaped our socket. Otherwise, we restart it

@@ -98,6 +98,16 @@ class ChatMessage(BaseClientMessage):
         self.sender = sender
         self.message = message
 
+
+# experiment
+class ReconnectRequest(BaseClientMessage):
+    def __init__(self, username):
+        super().__init__()
+        self.username = username
+
+# todo response to ReconnectRequest: True or False
+
+
 # not used
 class sendSavedGame(BaseClientMessage):
     """send by client when trying to load a game from disk"""

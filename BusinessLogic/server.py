@@ -4,9 +4,11 @@ import socket
 import logging
 import sys
 import pickle
+from pickle import UnpicklingError, PicklingError
 import threading
 import os.path
 from random import randint
+import time
 
 try:
     from message import *
@@ -25,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 # define global varaibles
-SERVER_ADDR = ("localhost", 8000)
+SERVER_ADDR = ("", 8000)
 
 # decorators---------------
 def logged_in(f):
@@ -135,12 +137,15 @@ class ClientSocket(threading.Thread):
         # make a temporary unique name before username is available
         self.thread_name = str(format(str(hex(id(self)))[:5:-1]))
         self.send_thread = None
+        self.recv_thread = None
         self.sendQ = queue.Queue()
         self.room = None
         """:type : Room"""  # type hint for self.room
         self.ready_for_room = False
         self.close_lock = threading.Lock()
         self.is_closed = False
+        self.connection_broken = False
+        self.reconnected = False
 
     # ----START HELPER FUNCTION----
     @property
@@ -170,8 +175,9 @@ class ClientSocket(threading.Thread):
         """set thread name for nicer logging"""
         if self.username:
             self.thread_name = self.username
-        self.setName(self.thread_name)
-        self.send_thread.setName("{}-s".format(self.thread_name))
+        self.setName(self.thread_name + "-m")
+        self.recv_thread.setName(self.thread_name + "-r")
+        self.send_thread.setName(self.thread_name + "-s")
 
     def _leave_room(self):
         """leave room and push new room status to everyone"""
@@ -221,20 +227,16 @@ class ClientSocket(threading.Thread):
         :type message: BaseClientMessage
         """
         try:
-            logger.info(
-                "sending {} message".format(message.__class__.__name__))
             pmessage = pickle.dumps(message)
-        except Exception as e:
-            logger.error("failed to pickle message")
-            logger.exception(e)
-            return
+        except Exception:
+            raise PicklingError(message)
+
+        header = "{}{}".format(len(pmessage), "\n").encode()
+
         try:
-            header = "{}{}".format(len(pmessage), "\n").encode()
             self.socket.sendall(header + pmessage)
-        except Exception as e:
-            self.close()
-            # Exception is expected as connection may be broken
-        return
+        except Exception:
+            raise
 
     def _recv(self):
         """
@@ -278,19 +280,18 @@ class ClientSocket(threading.Thread):
         try:
             message_len = _receive_len_header(self.socket)
             if not message_len:
-                return None
+                raise Exception("connection broken")
             new_pmsg = _recv_real_message(self.socket, message_len)  # pickled
             if not new_pmsg:
-                return None
+                raise Exception("connection broken")
         except Exception:  # connection broken
-            return None
+            raise Exception("connection broken")
         try:
             new_msg = pickle.loads(new_pmsg)
-        except Exception as e:
-            logger.error("message cannot be unpickled, "
-                         "message format might be wrong.")
-            return None
-        return new_msg
+        except Exception:
+            raise UnpicklingError(new_pmsg)
+        else:
+            return new_msg
 
     def close(self):
         """
@@ -305,9 +306,28 @@ class ClientSocket(threading.Thread):
                 self._leave_room()
             # set the player_stat to logged out
             self.update_player_stats(status=False)
-            self.socket.close()
+            if self.socket:  # this check is necessary for handle_reconnection
+                self.socket.close()
             self.server.drop_connection(self.socket)
             self.is_closed = True
+
+    def wait_for_reconnect(self, timeout=60):
+        """after connection is broken, wait for reconnection, return false
+        after timeout or if not logged in
+        :return : bool"""
+        # not logged in, no need to reconnect
+        if not self.username:
+            return False
+        countdown = timeout
+        while countdown > 0:
+            countdown -= 1
+            if self.reconnected:
+                self.connection_broken = False
+                self.reconnected = False
+                return True
+            else:
+                # logger.debug("debug: waiting...")
+                time.sleep(1)
 
     def handle_clientlogin(self, login_message):
         """link client socket to client username"""
@@ -423,16 +443,40 @@ class ClientSocket(threading.Thread):
     def handle_leavegame(self, login_data):
         pass
 
+    def handle_reconnectrequest(self, reconnect_data):
+        """this is a hack, far from perfect"""
+        username = getattr(reconnect_data, "username", None)
+        userstats = self.server.player_stats.get(username)["status"]
+        if username and userstats is True:
+            cs = self.server.get_clientsocket_by_username(username)
+            if cs.connection_broken:
+                cs.socket = self.socket
+                cs.socket_addr = self.socket_addr
+                self.socket = None  # just to make sure detached completely
+                cs.reconnected = True
+                sys.exit()  # quit this thread
+            else:
+                logger.warning("client try to reconnect but connection is "
+                               "not broken")
+                return
+        else:
+            logger.warning("reconnection msg does not have username or "
+                           "username is un-registered with server")
+            return
+
+
+
     def handle_message(self, msg):
         """
         verify and dispatch messages to different handler
         :type msg: BaseClientMessage
         """
         msg_class = msg.__class__.__name__
-        handler = getattr(self, "handle_%s" % msg_class.lower())
+        handler = getattr(self, "handle_%s" % msg_class.lower(), None)
         if not handler:
             logger.error("No handler for message class {}".format(msg_class))
-        # found handler for the message
+            return
+
         logger.info("handling {} message".format(msg.__class__.__name__))
         try:
             handler(msg)
@@ -444,43 +488,97 @@ class ClientSocket(threading.Thread):
         """
         a sub send-thread execute this function to send message stored in sendQ
         """
-        try:
-            while 1:
-                # send the message
-                msg = self.sendQ.get()  # block on get from sendQ
+        while 1:
+            # send the message
+            msg = self.sendQ.get()  # block on get from sendQ
+            try:
                 self._send(msg)
-        # we don't care about the exception because it is expected when
-        # connection broke
-        finally:
-            self.close()
+            except PicklingError as e:
+                logger.error("failed to pickle message")
+                logger.debug(e.args[0])
+            except Exception:
+                # put back the message get from the queue in case of exception
+                self.sendQ.put(msg)
+                if not self.connection_broken:
+                    self.connection_broken = True
+                    logger.info("client connection is broken")
+                return
+
+    def do_recv(self):
+        """
+        a sub receive-thread execute this function to receive and handle msg
+        """
+        while 1:
+            try:
+                # block on recv
+                new_msg = self._recv()
+            except UnpicklingError as upe:
+                logger.error("message cannot be unpickled, "
+                             "message format might be wrong.")
+                logger.debug(upe.args[0])
+            except Exception:
+                if not self.connection_broken:
+                    self.connection_broken = True
+                    logger.info("client connection is broken")
+                return
+            if not new_msg:
+                if not self.connection_broken:
+                    self.connection_broken = True
+                    logger.info("client connection is broken")
+                return
+            self.handle_message(new_msg)
 
     def run(self):
         """
-        first spawn a thread to send
-        then it block on recv and put new message on sendQ
+        the main thread of client that will spawn send_thread and
+        recv_thread and will be in charge of monitoring the health of the
+        connection
         """
         # spawn the sending thread
         self.send_thread = threading.Thread(target=self.do_send)
         self.send_thread.daemon = True
-        # update sender threads name first before starting send_thread
+        self.recv_thread = threading.Thread(target=self.do_recv)
+        self.recv_thread.daemon = True
+        # update threads name first before starting them
         self.update_thread_name()
         self.send_thread.start()
+        self.recv_thread.start()
         logger.info("new client connected: {}".format(self.socket_addr))
+        while True:
+            if self.connection_broken:
+                # reconnected successfully
+                if self.wait_for_reconnect():
+                    # check if threads are still up
+                    # send_thread is likely to be alive if it's blocking on
+                    # the sendQ, if so, it's ok because we will already
+                    # swaped our socket. Otherwise, we restart it
+                    if not self.send_thread.isAlive():
+                        self.send_thread = threading.Thread(target=self.do_send)
+                        self.send_thread.daemon = True
+                        self.update_thread_name()
+                        self.send_thread.start()
+                    # recv_thread is likely to be dead, if so, we restart
+                    # it as well. Otherwise, we do the same thing, because
+                    # it is not listening on an active socket anymore, so
+                    # it won't do interfere our connection
+                    self.recv_thread = threading.Thread(target=self.do_recv)
+                    self.recv_thread.daemon = True
+                    self.update_thread_name()
+                    self.recv_thread.start()
 
-        # main recv and handle loop
-        try:
-            while 1:
-                # block on recv
-                new_msg = self._recv()
-                if new_msg:
-                    self.handle_message(new_msg)
+                    logger.info("client reconnected")
+
+                # reconnection timeout
                 else:
-                    # assume the connection is broken
+                    if self.username:
+                        logger.warning(
+                            "client connection time out, disconnecting")
                     self.close()
-                    break
-        finally:
-            self.close()
-            # raise
+                    return
+
+            # check connection in 1 second
+            else:
+                time.sleep(1)
 
 
 class Server():
@@ -519,7 +617,7 @@ class Server():
     def make_new_player(self, username):
         """create a new player profile and add to player_stats"""
         new_player_stats = {"wins": 0, "games": 0, "status": False}
-        self.player_stats.setdefault(username, {new_player_stats})
+        self.player_stats.setdefault(username, new_player_stats)
 
     def drop_connection(self, dropped_client_socket):
         """
@@ -536,8 +634,10 @@ class Server():
     def summary(self):
         logger.debug("Summary: clients still connected: {}"
                      .format(self.clients or None))
-        logger.debug("Summary: rooms not removed: {}".format(self.rooms or
-                                                             None))
+        logger.debug("Summary: rooms not removed: {}"
+                     .format(self.rooms or None))
+        logger.debug("Summary: remaining threads: {}"
+                     .format(threading.enumerate()))
 
     def shut_down(self):
         with self.clients_lock:
@@ -595,6 +695,15 @@ class Server():
             logger.critical("Unexpected Exception: Server Shutdown")
             logger.exception(e)
             self.shut_down()
+
+    def get_clientsocket_by_username(self, name):
+        """get a clientsocket from clients by username
+        this operation is not efficient"""
+        with self.clients_lock:
+            for _, v in self.clients.items():
+                if v.username and v.username == name:
+                    return v
+
 
 
 if __name__ == "__main__":
