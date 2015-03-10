@@ -552,7 +552,7 @@ class Gui:
         self.shader = self.shaders()
         self.selected = None
         self.combiner = None
-        self.spriteSheetCuts = (4,4)
+        self.spriteSheetCuts = (4,5)
         self.altDown = False
         self.shiftDown = False
 
@@ -791,25 +791,25 @@ class Gui:
     def getHexUV(self, h):
         ret = [0,0]
         if h.hasWatchTower and h.hasMeadow:
-            ret = [3,1]
-        elif h.hasWatchTower:
-            ret = [2,1]
-        elif h.hasRoad and h.hasMeadow:
-            ret = [1,1]
-        elif h.hasRoad:
-            ret = [0,1]
-        elif h.hasTombstone and h.hasMeadow:
-            ret = [3,0]
-        elif h.hasTombstone:
-            ret = [2,0]
-        elif h.hasTree:
-            ret = [1,2]
-        elif h.water:
             ret = [3,2]
-        elif h.hasMeadow:
+        elif h.hasWatchTower:
             ret = [2,2]
-        else:
+        elif h.hasRoad and h.hasMeadow:
+            ret = [1,2]
+        elif h.hasRoad:
             ret = [0,2]
+        elif h.hasTombstone and h.hasMeadow:
+            ret = [3,1]
+        elif h.hasTombstone:
+            ret = [2,1]
+        elif h.hasTree:
+            ret = [1,3]
+        elif h.water:
+            ret = [3,3]
+        elif h.hasMeadow:
+            ret = [2,3]
+        else:
+            ret = [0,3]
 
         ret[0] /= self.spriteSheetCuts[0]
         ret[1] /= self.spriteSheetCuts[1]
@@ -854,8 +854,8 @@ class Gui:
         offset_array = [village.hex.centre for player in self.engine.players.values() for village in player.villages]+[unit.hex.centre for player in self.engine.players.values() for village in player.villages for unit in  village.units]
         self.nObjects = len(offset_array)
         offset_data =  np.array(offset_array, dtype=np.float32)
-        texOff_data = np.array([[0,0] for player in self.engine.players.values() for village in player.villages]+
-                               [[unit.type/self.spriteSheetCuts[0],3/self.spriteSheetCuts[1]] for player in self.engine.players.values() for village in player.villages for unit in  village.units]
+        texOff_data = np.array([[village.type/self.spriteSheetCuts[0],0] for player in self.engine.players.values() for village in player.villages]+
+                               [[unit.type/self.spriteSheetCuts[0],4/self.spriteSheetCuts[1]] for player in self.engine.players.values() for village in player.villages for unit in  village.units]
                                , dtype=np.float32)
 
         glBindBuffer(GL_ARRAY_BUFFER, self.unitUVoffsetbuffer)
@@ -992,8 +992,8 @@ class Gui:
             self.beginTurn()
 
     def run(self):
-        #if self.engine.turn == self.player:
-           #self.beginTurn()
+        if self.engine.turn == self.player:
+           self.beginTurn()
         while self.running:
             clickEvent = False
             if not self.client.outGameQueue.empty():
