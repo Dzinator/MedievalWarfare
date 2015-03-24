@@ -9,16 +9,18 @@ class BaseClientMessage():
 class Signup(BaseClientMessage):
     """send by client: sign up with a new username"""
 
-    def __init__(self, username):
+    def __init__(self, username, password):
         super().__init__()
-        self.username = username
+        self.username = str(username)
+        self.passwd = str(password)
 
 class ClientLogin(BaseClientMessage):
     """send by client: log in with a username"""
 
-    def __init__(self, username):
+    def __init__(self, username, password):
         super().__init__()
-        self.username = username
+        self.username = str(username)
+        self.passwd = str(password)
 
 class LoginAck(BaseClientMessage):
     """send by server: response for ClientLogin and Signup msg"""
