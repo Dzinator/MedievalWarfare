@@ -6,6 +6,13 @@ class BaseClientMessage():
 
 # log in
 
+class Signup(BaseClientMessage):
+    """send by client: sign up with a new username"""
+
+    def __init__(self, username):
+        super().__init__()
+        self.username = username
+
 class ClientLogin(BaseClientMessage):
     """send by client: log in with a username"""
 
@@ -14,7 +21,7 @@ class ClientLogin(BaseClientMessage):
         self.username = username
 
 class LoginAck(BaseClientMessage):
-    """send by server: response for ClientLogin msg"""
+    """send by server: response for ClientLogin and Signup msg"""
     def __init__(self, success):
         """:type param success: bool"""
         super().__init__()
