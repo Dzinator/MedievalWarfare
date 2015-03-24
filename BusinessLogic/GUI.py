@@ -403,7 +403,8 @@ class UI:
         
         self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.spawnUnit(2),lambda: True if self.gui.selected and self.gui.selected.village and self.gui.selected.village.gold>=30 and self.gui.selected.village.type >0 else False, "buy soldier"))
         self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.spawnUnit(3),lambda: True if self.gui.selected and self.gui.selected.village and self.gui.selected.village.gold>=40 and self.gui.selected.village.type >1 and  not self.gui.selected.hasTree else False, "buy knight"))
-        self.villageButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.upgradeVillage(),lambda: True if self.gui.selected and self.gui.selected.village and self.gui.selected.village.wood>=8 and self.gui.selected.village.type<2 else False, "upgrade town"))
+        self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.spawnUnit(4),lambda: True if self.gui.selected and self.gui.selected.village and self.gui.selected.village.gold>=35 and self.gui.selected.village.wood>=12  and self.gui.selected.village.type >1 and  not self.gui.selected.hasTree else False, "buy cannon"))
+        self.villageButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.upgradeVillage(),lambda: True if self.gui.selected and self.gui.selected.village and ((self.gui.selected.village.wood>=8 and self.gui.selected.village.type<2) or (self.gui.selected.village.wood>=12 and self.gui.selected.village.type==2)) else False, "upgrade town"))
         self.hexButtons.append(Button(0,self.height,.2,.03, lambda: self.gui.buildWatchTower(),lambda: True if self.gui.selected and self.gui.selected.village and self.gui.selected.village.wood>=5 and self.gui.selected.village.type >0 and not self.gui.selected.hasWatchTower else False, "build tower"))
          
         self.combineButtons = []  
@@ -417,7 +418,6 @@ class UI:
         self.menuButtons.append(Button(0,-.2,.2,.03, lambda: pygame.quit() or setattr(self.gui, 'running', False),lambda: True , "exit game"))
 
         self.endButton = Button(1.5,self.height,.2,.03, lambda: self.gui.endTurn(), lambda: True, "end turn", 0.015)
-        
 
     def mouseOver(self,p):
         t = self.shift
@@ -701,7 +701,7 @@ class Gui:
                 [d/2,d*math.sin(math.pi/3)], 
                 [-d/2,d*math.sin(math.pi/3)], 
                 [-d,0]], dtype=np.float32)
-        g_overlayColor_buffer_data = np.array([0,0,0,.6]*6, dtype=np.float32)
+        g_overlayColor_buffer_data = np.array([0,0,0,.4]*6, dtype=np.float32)
         self.overlaycolors = [[0.6118, .0118, 0.2824, 0] if h.owner==1 else ([0.0314, 0.5882, 0.651, 0] if h.owner ==2 else ([0, 0.0196, 0.302,0] if h.owner == 3 else ([.8098,0.3784, 0.0196,0] if h.owner == 4 else [0,0,0,-.6])))  for h in self.engine.grid.land]
         g_overlayCOffset_buffer_data = np.array(self.overlaycolors, dtype=np.float32)
         g_overlayOffset_buffer_data = np.array([h.centre for h in self.engine.grid.land], dtype=np.float32)
@@ -822,7 +822,7 @@ class Gui:
         self.gridUVoffsets = [ self.getHexUV(h) for h in self.engine.grid.hexes.values()]
         self.overlaycolors = [[1,0,0,0] if self.selected == h or self.combiner ==h
                               else ([0.6118, .0118, 0.2824, 0] if h.owner==1 
-                                   else ([0.0314, 0.5882, 0.651, 0] if h.owner ==2 
+                                   else ([1, .3, 0, 0] if h.owner ==2 
                                          else ([0, 0.0196, 0.302,0] if h.owner == 3 
                                                else ([.8098,0.3784, 0.0196,0] if h.owner == 4 
                                                      else [0,0,0,-.6]))))  for h in self.engine.grid.land]
@@ -837,6 +837,29 @@ class Gui:
         glBindBuffer(GL_ARRAY_BUFFER, self.overlaycffsetbuffer)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), None, GL_STATIC_DRAW)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), ADT.voidDataPointer(g_overlayCOffset_buffer_data), GL_STREAM_DRAW)
+
+    def convex_hull(self,points): #possibility for territories
+        points = sorted(set(points))
+ 
+        if len(points) <= 1:
+            return points
+ 
+        def cross(o, a, b):
+            return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+ 
+        lower = []
+        for p in points:
+            while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+                lower.pop()
+            lower.append(p)
+ 
+        upper = []
+        for p in reversed(points):
+            while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+                upper.pop()
+            upper.append(p)
+ 
+        return lower[:-1] + upper[:-1] 
         
     def updateObjectBuffers(self):
         if self.selected and self.selected.village and self.selected.village.owner == self.engine.players[self.player]:
@@ -849,6 +872,8 @@ class Gui:
         for v in self.villageOverlays.keys():
             if v not in self.engine.players[self.player].villages:
                 temp.append(v)
+            else:
+                self.villageOverlays[v].update("w:"+str(v.wood)+"  g:"+str(v.gold))
         for v in temp:
             del self.villageOverlays[v]     
         offset_array = [village.hex.centre for player in self.engine.players.values() for village in player.villages]+[unit.hex.centre for player in self.engine.players.values() for village in player.villages for unit in  village.units]
@@ -903,7 +928,7 @@ class Gui:
         glBindBuffer(GL_ARRAY_BUFFER, self.overlaycffsetbuffer)
         glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 0, None)
 
-        glDrawArraysInstanced(GL_LINE_LOOP, 0, 6,len(self.engine.grid.land))
+        glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 6,len(self.engine.grid.land))
 
         glBindBuffer(GL_ARRAY_BUFFER, self.unitvertexbuffer)
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, None)
@@ -990,6 +1015,7 @@ class Gui:
             self.engine.rounds +=1
         if self.engine.turn == self.player:
             self.beginTurn()
+        self.updateObjectBuffers()
 
     def run(self):
         if self.engine.turn == self.player:
@@ -1221,4 +1247,4 @@ class Gui:
 #winning condition
 
 
-                
+   

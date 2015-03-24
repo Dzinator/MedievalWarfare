@@ -9,7 +9,7 @@ from message import *
 class ThreadDispatcher(QThread):
     def __init__(self, parent):
         QThread.__init__(self)
-        self.client = Client('142.157.148.89', 8000, "aaron", self)
+        self.client = Client('127.0.0.1', 8000, "aaron", self)
         self.parent = parent
         self.name = ""
         self.running = True
