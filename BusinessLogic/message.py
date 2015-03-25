@@ -119,7 +119,8 @@ class ReconnectRequest(BaseClientMessage):
 
 # not used
 class sendSavedGame(BaseClientMessage):
-    """send by client when trying to load a game from disk"""
+    """send by client when trying to load a game from disk
+    saved_game is a gameEngine instance"""
     def __init__(self, saved_game):
         super().__init__()
         self.saved_game = saved_game

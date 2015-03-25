@@ -86,6 +86,28 @@ class testServer(unittest.TestCase):
         Juliet.connect(SERVER_ADDR)
         Juliet.close()
 
+    def testSignup(self):
+        """test sign up"""
+        Juliet = socket.socket()
+        Juliet.connect(SERVER_ADDR)
+        sendM = Signup("Juliet", 123456)
+        send_to_server(Juliet, sendM)
+        receivedM = recv_from_server(asdfghjkl)
+
+
+    def testLoginBeforeSignup(self):
+        """username must sign up first to be known by server"""
+        asdfghjkl = socket.socket()
+        asdfghjkl.connect(SERVER_ADDR)
+        loginM = ClientLogin("asdfghjkl", "password")
+        send_to_server(asdfghjkl, loginM)
+        receivedM = recv_from_server(asdfghjkl)
+        assert isinstance(receivedM, LoginAck)
+        assert (receivedM.success is False)
+        asdfghjkl.close()
+
+
+
     def testLoginAndRelogin(self):
         """test disconnect and reconnect and login
         to server, server should not crash"""

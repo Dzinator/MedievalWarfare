@@ -145,7 +145,7 @@ class ClientSocket(threading.Thread):
         self.close_lock = threading.Lock()
         self.is_closed = False
         self.connection_broken = False
-        self.reconnected = False
+        self.reconnect = True
 
     # ----START HELPER FUNCTION----
     @property
@@ -304,8 +304,9 @@ class ClientSocket(threading.Thread):
             # leave any room that client is in
             if self.room:
                 self._leave_room()
-            # set the player_stat to logged out
-            self.update_player_stats(status=False)
+            # set the player_stat to logged out if suspended and timed out
+            if self.reconnect and self.connection_broken:
+                self.update_player_stats(status="Offline")
             if self.socket:  # this check is necessary for handle_reconnection
                 self.socket.close()
             self.server.drop_connection(self.socket)
@@ -320,37 +321,94 @@ class ClientSocket(threading.Thread):
             return False
         countdown = timeout
         while countdown > 0:
-            countdown -= 1
-            if self.reconnected:
-                self.connection_broken = False
-                self.reconnected = False
+            # if client login instead of reconnect
+            if not self.reconnect:
+                return False
+            # reconnection success
+            elif not self.connection_broken:
                 return True
+            # sleep 1 sec
             else:
+                countdown -= 1
                 # logger.debug("debug: waiting...")
                 time.sleep(1)
 
     def handle_clientlogin(self, login_message):
         """link client socket to client username"""
-        self.username = login_message.username
-        self.update_thread_name()
         # check if this username exists
-        if self.server.player_stats.get(self.username):
+        username = login_message.username
+        userstat = self.server.player_stats.get(username)
+        if userstat:
             # check if this username is already logged in
-            if self.server.player_stats[self.username]["status"]:
+            if userstat["status"] == "Online":
                 logger.warning(
-                    "Re-login attempt detected: {}".format(self.username))
+                    "Re-login attempt detected: {}".format(username))
                 self.sendQ.put(LoginAck(False))
                 return
+            # the user is trying to login again while suspended
+            elif userstat["status"] == "Suspend":
+                # tells the old clientSocket to stop waiting
+                old_client_socket = self.server.get_clientsocket_by_username(username)
+                """:type : ClientSocket"""
+                # still waiting
+                if old_client_socket.connection_broken:
+                    old_client_socket.stop_waiting_on_reconnect()
+                    logger.info("client re-logged in as {}: {}"
+                                .format(username, self.socket_addr))
+                    self.username = username
+                    self.update_player_stats(status="Online")
+                    self.update_thread_name()
+                    self.sendQ.put(LoginAck(True))
+                    self.sendQ.put(SendRoomList(self.server.all_room_ids))
+                else:
+                    logger.info("bad, bad, bad: should never happen")
+                    return
+
             else:
-                self.update_player_stats(status=True)
-                logger.info("welcome back! {}".format(self.username))
+                if userstat["password"] == login_message.passwd:
+                    logger.info("welcome back! {}".format(username))
+                else:
+                    logger.info("password wrong! {}".format(username))
+                    self.sendQ.put(LoginAck(False))
+                    return
         else:
-            self.server.make_new_player(self.username)  # create this name
-            logger.info("new profile created: {}".format(self.username))
+            logger.info("username does not exist! {}".format(username))
+            self.sendQ.put(LoginAck(False))
+            return
         logger.info("client logged in as {}: {}"
-                    .format(self.username, self.socket_addr))
+                    .format(username, self.socket_addr))
+        self.username = username
+        self.update_player_stats(status="Online")
+        self.update_thread_name()
         self.sendQ.put(LoginAck(True))
         self.sendQ.put(SendRoomList(self.server.all_room_ids))
+
+    def handle_signup(self, signup_dat):
+        username = signup_dat.username
+        userstat = self.server.player_stats.get(username)
+        # check if this username exists
+        if userstat:
+            logger.info("username does not exist! {}".format(username))
+            self.sendQ.put(LoginAck(False))
+            return
+        else:
+            if signup_dat.username and signup_dat.passwd:
+                # create this name
+                self.server.make_new_player(signup_dat.username,
+                                            signup_dat.passwd)
+                logger.info("new profile created: {}".format(username))
+            else:
+                logger.info("username or password not supplied for signup")
+                self.sendQ.put(LoginAck(False))
+                return
+        logger.info("client logged in as {}: {}"
+                    .format(username, self.socket_addr))
+        self.username = username
+        self.update_player_stats(status=True)
+        self.update_thread_name()
+        self.sendQ.put(LoginAck(True))
+        self.sendQ.put(SendRoomList(self.server.all_room_ids))
+
 
     @logged_in
     def handle_getroomlist(self, dat):
@@ -447,14 +505,14 @@ class ClientSocket(threading.Thread):
         """this is a hack, far from perfect"""
         username = getattr(reconnect_data, "username", None)
         userstats = self.server.player_stats.get(username)["status"]
-        if username and userstats is True:
+        if username and (userstats == "Suspend"):
+            # let the old clientSocket swap its socket
             cs = self.server.get_clientsocket_by_username(username)
             if cs.connection_broken:
                 cs.socket = self.socket
                 cs.socket_addr = self.socket_addr
                 self.socket = None  # just to make sure detached completely
-                cs.reconnected = True
-                sys.exit()  # quit this thread
+                cs.connection_broken = False
             else:
                 logger.warning("client try to reconnect but connection is "
                                "not broken")
@@ -463,6 +521,15 @@ class ClientSocket(threading.Thread):
             logger.warning("reconnection msg does not have username or "
                            "username is un-registered with server")
             return
+
+    def stop_waiting_on_reconnect(self):
+        """if current clientSocket is waiting for reconnect, stop it and
+        close"""
+        # still waiting for reconnect
+        if self.connection_broken and self.reconnect:
+            # close first to write update before the new clientSocket take over
+            self.close()
+            self.reconnect = False
 
 
 
@@ -570,7 +637,8 @@ class ClientSocket(threading.Thread):
 
                 # reconnection timeout
                 else:
-                    if self.username:
+                    # time out instead of relogin
+                    if self.username and self.reconnect:
                         logger.warning(
                             "client connection time out, disconnecting")
                     self.close()
@@ -614,9 +682,10 @@ class Server():
         """return a list of all room ids"""
         return list(self.rooms.keys())
 
-    def make_new_player(self, username):
+    def make_new_player(self, username, password):
         """create a new player profile and add to player_stats"""
-        new_player_stats = {"wins": 0, "games": 0, "status": False}
+        new_player_stats = {"wins": 0, "games": 0, "status": "Online",
+                            "password": password}
         self.player_stats.setdefault(username, new_player_stats)
 
     def drop_connection(self, dropped_client_socket):
@@ -649,7 +718,7 @@ class Server():
         if self.player_stats:
             # just to make sure all player status if off
             for ps in self.player_stats.values():
-                ps["status"] = False
+                ps["status"] = "Offline"
             with open(self.data_file, "wb") as f:
                 pickle.dump(self.player_stats, f)
         logger.info("player stats saved")
@@ -668,7 +737,7 @@ class Server():
             open(self.data_file, 'wb').close()
         # initialize all player status to offline
         for p in self.player_stats.values():
-            p["status"] = False
+            p["status"] = "Offline"
 
         # main loop
         try:
