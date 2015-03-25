@@ -51,6 +51,16 @@ def in_room(f):
     return _wrapper
 
 
+def host_only(f):
+    @in_room
+    @wraps(f)
+    def _wrapper(self, msg):
+        return f(self, msg) if self.room.host == self else \
+            logger.error("Unable to handle {} message, player must be room "
+                         "host".format(msg.__class__.__name__))
+    return _wrapper
+
+
 def synchronized(loc=None):
     from threading import Lock
 
@@ -65,17 +75,23 @@ def synchronized(loc=None):
         return _wrapper
 
     return _dec
+
+
 # decorators end---------------
 
 
 class Room():
-    def __init__(self):
+    def __init__(self, host):
+        """
+        :type host: ClientSocket
+        """
         self._players = set()
-        self.game_id = ""
+        self.host = host
+        self.game_changed = False
         self.game = None
         self.ID = id(Room)
         self._lock = threading.RLock()
-        self._is_closed = False
+        self.is_closed = False
 
     @property
     def players(self):
@@ -84,7 +100,7 @@ class Room():
 
     def add_player(self, p):
         with self._lock:
-            if not self._is_closed:
+            if not self.is_closed:
                 self._players.add(p)
             else:
                 raise Exception("Cannot join a closed room {}".format(self.ID))
@@ -98,24 +114,19 @@ class Room():
         with self._lock:
             return not self._players
 
-    def change_map(self, game_id=None, saved_game=None):
-        """pass in either a saved_game or a map_id
-        if saved_game is passed, game_id is calculated"""
+    def change_map(self, saved_game=None):
+        """pass in a saved_game"""
         with self._lock:
-            if saved_game:
-                self.game = saved_game
-                self.game_id = id(self.game)
-            elif game_id:
-                # if game_id in default_games:
-                self.game_id = game_id
+            self.game_changed = True
+            self.game = saved_game
 
     def close(self):
         """set _is_closed to True"""
         with self._lock:
-            if self._is_closed:
+            if self.is_closed:
                 # someone else already closed it
                 return False
-            self._is_closed = True
+            self.is_closed = True
             return True
 
 
@@ -168,7 +179,7 @@ class ClientSocket(threading.Thread):
         """helper to create a sendRoom msg
         :return: sendRoom"""
         return sendRoom(self.room.ID,
-                        self.room.game_id,
+                        "",  # game id no longer used
                         self.player_list)
 
     def update_thread_name(self):
@@ -348,7 +359,8 @@ class ClientSocket(threading.Thread):
             # the user is trying to login again while suspended
             elif userstat["status"] == "Suspend":
                 # tells the old clientSocket to stop waiting
-                old_client_socket = self.server.get_clientsocket_by_username(username)
+                old_client_socket = self.server.get_clientsocket_by_username(
+                    username)
                 """:type : ClientSocket"""
                 # still waiting
                 if old_client_socket.connection_broken:
@@ -421,22 +433,26 @@ class ClientSocket(threading.Thread):
     @logged_in
     def handle_joinroom(self, room_data):
         """joining a existed room by id"""
-        try:
-            self.room = self.server.rooms[room_data.roomId]
+        room = self.server.rooms.get(room_data.roomId)
+        ":type: Room"
+        if not room or room.is_closed:
+            self.sendQ.put(SendRoomList(self.server.all_room_ids))
+            self.room = room
             self.room.add_player(self)
-        except Exception:
+            self.broadcast_msg(self._sendroom_msg)
+            # send new map if game is changed from default
+            if self.room.game_changed:
+                self.broadcast_msg(NewMap(self.room.game))
+        else:
             logger.info("trying to join a room that does not exist: {}"
                         .format(room_data.roomId))
-            # send a new room list
-            self.sendQ.put(SendRoomList(self.server.all_room_ids))
-        else:
-            self.broadcast_msg(self._sendroom_msg)
+
 
     @logged_in
     def handle_createroom(self, dat):
         """create a room for client"""
         # generate room
-        self.room = Room()
+        self.room = Room(self)
         self.room.add_player(self)
         # put the room to server
         self.server.rooms[self.room.ID] = self.room
@@ -462,21 +478,12 @@ class ClientSocket(threading.Thread):
         self._leave_room()
         self.sendQ.put(SendRoomList(self.server.all_room_ids))
 
-    @in_room
+    @host_only
     def handle_changemap(self, game_dat):
-        """change a map, by id(default maps) or by object(saved game)"""
-        # todo make this work, consider using a pull model
-        if game_dat.game_id:
-            self.room.change_map(game_id=game_dat.game_id)
-            self.broadcast_msg(self._sendroom_msg)
-        elif game_dat.saved_game:
-            self.room.change_map(saved_game=game_dat.saved_game)
-            # todo client code needs to be unready to change map to avoid race
-            # cond
-            if self.ready_for_room:
-                self.ready_for_room = False
-                self.broadcast_msg(self._sendroom_msg)
-            self.broadcast_msg(NewMap(game_dat.saved_game), exclude_self=True)
+        """change a map, game_dat needs to contain a saved game"""
+        self.room.change_map(saved_game=game_dat.saved_game)
+        self.broadcast_msg(NewMap(game_dat.saved_game), exclude_self=True)
+        # todo client code add handler for NewMap to swap gameEngine
 
     @in_room
     def handle_turndata(self, turndata):
@@ -530,7 +537,6 @@ class ClientSocket(threading.Thread):
             # close first to write update before the new clientSocket take over
             self.close()
             self.reconnect = False
-
 
 
     def handle_message(self, msg):
@@ -620,7 +626,8 @@ class ClientSocket(threading.Thread):
                     # the sendQ, if so, it's ok because we will already
                     # swaped our socket. Otherwise, we restart it
                     if not self.send_thread.isAlive():
-                        self.send_thread = threading.Thread(target=self.do_send)
+                        self.send_thread = threading.Thread(
+                            target=self.do_send)
                         self.send_thread.daemon = True
                         self.update_thread_name()
                         self.send_thread.start()
@@ -772,7 +779,6 @@ class Server():
             for _, v in self.clients.items():
                 if v.username and v.username == name:
                     return v
-
 
 
 if __name__ == "__main__":

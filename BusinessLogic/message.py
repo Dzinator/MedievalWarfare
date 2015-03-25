@@ -140,7 +140,7 @@ class ChangeMap(BaseClientMessage):
 
 class NewMap(BaseClientMessage):
     """send by server: a new bit map loaded from client"""
-    def __init__(self, new_game, game_id=None):
+    def __init__(self, new_game):
         super().__init__()
         self.new_game = new_game
 
