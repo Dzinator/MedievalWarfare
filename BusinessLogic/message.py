@@ -70,15 +70,17 @@ class startGame(BaseClientMessage):
 
 class sendRoom(BaseClientMessage):
     """send by server: a new copy of the room data"""
-    def __init__(self, roomId, current_game, playerlist):
+    def __init__(self, roomId, current_game, playerlist, host):
         """
         :type roomId: int
         :type current_game: str
+        :type host: str
         """
         super().__init__()
         self.roomId = roomId
         self.current_game = current_game
         self.playerlist = playerlist
+        self.host = host
 
 class LeaveRoom(BaseClientMessage):
     """send by client: indicate leaving a room"""

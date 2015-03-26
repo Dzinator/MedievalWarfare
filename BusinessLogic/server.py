@@ -108,6 +108,12 @@ class Room():
     def remove_player(self, p):
         with self._lock:
             self._players.remove(p)
+            if self.is_empty:
+                return
+            else:
+                # swap host
+                self.host = self._players.pop()
+                self._players.add(self.host)
 
     @property
     def is_empty(self):
@@ -145,6 +151,7 @@ class ClientSocket(threading.Thread):
         self.socket = sock
         self.socket_addr = self.socket.getpeername()
         self.username = None
+        ":type: str"
         # make a temporary unique name before username is available
         self.thread_name = str(format(str(hex(id(self)))[:5:-1]))
         self.send_thread = None
@@ -180,7 +187,8 @@ class ClientSocket(threading.Thread):
         :return: sendRoom"""
         return sendRoom(self.room.ID,
                         "",  # game id no longer used
-                        self.player_list)
+                        self.player_list,
+                        self.room.host.username)
 
     def update_thread_name(self):
         """set thread name for nicer logging"""
@@ -220,6 +228,8 @@ class ClientSocket(threading.Thread):
 
     def broadcast_msg(self, msg, exclude_self=False):
         """send to all players in the same room or game"""
+        if not self.room:
+            return
         if exclude_self:
             players = (p for p in self.room.players if p is not self)
         else:
@@ -331,6 +341,7 @@ class ClientSocket(threading.Thread):
         if not self.username:
             return False
         countdown = timeout
+        logger.info("waiting for client to reconnect...")
         while countdown > 0:
             # if client login instead of reconnect
             if not self.reconnect:
@@ -502,7 +513,8 @@ class ClientSocket(threading.Thread):
             else:
                 p.update_player_stats(new_game=True)
         self.broadcast_msg(GameEnd())
-        self.broadcast_msg(SendRoomList(self.server.all_room_ids))
+        # self.broadcast_msg(SendRoomList(self.server.all_room_ids))
+        self.broadcast_msg(self._sendroom_msg)
 
     @in_room
     def handle_leavegame(self, login_data):
