@@ -157,7 +157,7 @@ class Element:
         self.texoffbuffer = g._types.GLuint(0)
         glGenBuffers(1, self.texoffbuffer)
         glBindBuffer(GL_ARRAY_BUFFER, self.texoffbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texoffVerts ), ADT.voidDataPointer(self.texoffVerts ), GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texoffVerts ), ADT.voidDataPointer(self.texoffVerts ), GL_DYNAMIC_DRAW)
 
     def inSquare(self, p, t):
         return (self.centre[0]+t+self.w>p[0]>self.centre[0]+t-self.w and self.centre[1]+self.h>p[1]>self.centre[1]-self.h)
@@ -166,7 +166,7 @@ class Element:
         self.texoffVerts = np.array(c*4 , dtype=np.float32)
         glBindBuffer(GL_ARRAY_BUFFER, self.texoffbuffer)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texoffVerts ), None, GL_DYNAMIC_DRAW)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texoffVerts ), ADT.voidDataPointer(self.texoffVerts ), GL_DYNAMIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texoffVerts ), ADT.voidDataPointer(self.texoffVerts ), GL_STREAM_DRAW)
 
     def update(self):
         g_tex_buffer_data = np.array([[-self.w+self.centre[0],-self.h+self.centre[1]],[self.w+self.centre[0],-self.h+self.centre[1]],[self.w+self.centre[0],self.h+self.centre[1]],[-self.w+self.centre[0],self.h+self.centre[1]]] , dtype=np.float32)
@@ -556,10 +556,6 @@ class Gui:
         self.altDown = False
         self.shiftDown = False
 
-        if savedGame:
-            self.engine = pickle.load(savedGame)
-            self.engine.Gui = self
-
         self.mainClock = pygame.time.Clock()
         shaders.glUseProgram(self.shader)
         self.transloc= glGetUniformLocation(self.shader,'engine')
@@ -589,6 +585,11 @@ class Gui:
 
         #objects
         self.initObjectBuffers()
+
+        if savedGame:
+            print("loaded")
+            self.engine = pickle.loads(savedGame)
+            self.engine.Gui = self
 
     def init(self):
         os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (50,50)
@@ -1029,9 +1030,10 @@ class Gui:
             clickEvent = False
             if sum((1 if p.villages else 0 for p in self.engine.players.values())) == 1 and not won:
                 won = True
-                self.client.inQueue.put(WinGame())
+                #self.client.inQueue.put(WinGame())
             if not self.client.outGameQueue.empty():
                 temp = self.client.outGameQueue.get()
+                print(temp)
                 clickEvent = True
                 if type(temp) == ChatMessage:
                     self.ui.chat.update(temp.message, self.showChat)
@@ -1044,7 +1046,9 @@ class Gui:
                         except:
                             print("clients out of sink")
                 elif type(temp) == GameEnd:
+                    print("end")
                     self.running = False
+                    
                     
             for event in pygame.event.get():
                 if event.type == QUIT:

@@ -13,6 +13,7 @@ class ThreadDispatcher(QThread):
         self.parent = parent
         self.name = ""
         self.running = True
+        self.host = ""
 
     def run(self):
         while self.running:
@@ -25,18 +26,21 @@ class ThreadDispatcher(QThread):
                     st =[ p.get('username', 'unknown') +"         status: "+("ready" if p.get('ready', False) else "not ready") for p in msg.playerlist]
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.addItems(st)))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.name.setText(str(msg.roomId)) ))
-                    if self.name == msg.host:
+                    self.host = msg.host
+                    if self.name == msg.host and self.parent.maps.count()==0:
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.clear()))
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.addItem("Random")))
                         for dirname, dirnames, filenames in os.walk('./saves') :
                             for filename in filenames:
                                 QApplication.postEvent(self.parent, _Event(lambda: self.parent.maps.addItem(filename)))
-                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.setCurrentIndex(self.parent.maps.findData("Random" if not msg.current_game else msg.current_game))))
-                    else:
+                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.setCurrentIndex(0)))
+                    elif self.name != msg.host:
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.clear()))
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.addItem("Random" if not msg.current_game else msg.current_game)))
+                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.setCurrentIndex(0)))
                 elif type(msg) == startGame:
                     QApplication.postEvent(self.parent, _Event(lambda:Engine(1, self.name, msg.player_turn, msg.seed,self.client, len(msg.player_list), msg.saved_game)))
+                    
                 elif type(msg) ==LoginAck:
                     if msg.success:
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.transition(1)))
@@ -56,12 +60,13 @@ class ThreadDispatcher(QThread):
         self.running = False
         self.client.s.close()
 
-    def loadMap(name):
-        temp = None
-        if name != "Random":
-            with open("./saves/"+name, 'rb') as f:
-                temp = f.read()
-        self.client.put(ChangeMap(name, temp))
+    def loadMap(self, mapName):
+        if self.host == self.name:
+            temp = None
+            if mapName != "Random":
+                with open("./saves/"+mapName, 'rb') as f:
+                    temp = f.read()
+            self.client.inQueue.put(ChangeMap(mapName, temp))
 
 
 class _Event(QEvent):
@@ -271,7 +276,8 @@ class Main(QWidget):
         
         self.maps = QComboBox(self)
         self.maps.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;font-size: 10px; ")
-        self.maps.currentIndexChanged[str].connect(lambda: self.dispatcher.loadMap(self.maps.itemData(self.maps.currentIndex())))
+        self.maps.currentIndexChanged[str].connect(lambda: self.dispatcher.loadMap(self.maps.currentText()))
+        
         
 
         buttons.addWidget(self.maps)

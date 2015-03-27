@@ -311,12 +311,11 @@ class Engine:
         self.roundsPlayed = 0
         self.width = 1600
         self.height = 900
-        if not savedGame:
-            self.initPlayers(nplayers)
-            self.seednumber = seed
-            random.seed(self.seednumber)
-            self.grid = Grid(1, self.width, self.height, self)
-            self.grid.populateMap(self.players)
+        self.initPlayers(nplayers)
+        self.seednumber = seed
+        random.seed(self.seednumber)
+        self.grid = Grid(1, self.width, self.height, self)
+        self.grid.populateMap(self.players)
         
         self.Gui = Gui(self, self.width, self.height, name, player, client, savedGame)
 
@@ -592,4 +591,4 @@ class ClientStub:
         self.outGameQueue = queue.Queue()
 
 if __name__ == "__main__":
-    engine = Engine(0, "aaron", 1, 89, ClientStub(), 1)
+    engine = Engine(0, "aaron", 1, 89, ClientStub(), 1, None)
