@@ -87,8 +87,8 @@ class Room():
         """
         self._players = set()
         self.host = host
-        self.game_changed = False
-        self.game = None
+        self.game_id = ""
+        self.saved_game = None
         self.ID = id(Room)
         self._lock = threading.RLock()
         self.is_closed = False
@@ -120,11 +120,11 @@ class Room():
         with self._lock:
             return not self._players
 
-    def change_map(self, saved_game=None):
+    def change_map(self, game_id, saved_game):
         """pass in a saved_game"""
         with self._lock:
-            self.game_changed = True
-            self.game = saved_game
+            self.game_id = game_id
+            self.saved_game = saved_game
 
     def close(self):
         """set _is_closed to True"""
@@ -186,7 +186,7 @@ class ClientSocket(threading.Thread):
         """helper to create a sendRoom msg
         :return: sendRoom"""
         return sendRoom(self.room.ID,
-                        "",  # game id no longer used
+                        self.room.game_id,  # game id no longer used
                         self.player_list,
                         self.room.host.username)
 
@@ -411,7 +411,7 @@ class ClientSocket(threading.Thread):
         userstat = self.server.player_stats.get(username)
         # check if this username exists
         if userstat:
-            logger.info("username does not exist! {}".format(username))
+            logger.info("username exist already! {}".format(username))
             self.sendQ.put(LoginAck(False))
             return
         else:
@@ -451,9 +451,6 @@ class ClientSocket(threading.Thread):
             self.room = room
             self.room.add_player(self)
             self.broadcast_msg(self._sendroom_msg)
-            # send new map if game is changed from default
-            if self.room.game_changed:
-                self.broadcast_msg(NewMap(self.room.game))
         else:
             logger.info("trying to join a room that does not exist: {}"
                         .format(room_data.roomId))
@@ -475,13 +472,16 @@ class ClientSocket(threading.Thread):
         will start game if everyone is ready"""
         self.ready_for_room = True
         self.broadcast_msg(self._sendroom_msg)
-        # check if everyone is ready
+        # start game if everyone is ready
         if all(p.ready_for_room for p in self.room.players):
-            seed = randint(0, 10000000)
+            seed = randint(0, 10000000) if not self.room.saved_game else None
             temp = self.player_list
             for i, p in enumerate(self.room.players):
                 p.ready_for_room = False
-                p.sendQ.put(startGame(seed, temp, i + 1))
+                p.sendQ.put(startGame(seed=seed,
+                                      player_list=temp,
+                                      player_turn=i + 1,
+                                      saved_game=self.room.saved_game))
 
     @in_room
     def handle_leaveroom(self, dat):
@@ -493,8 +493,7 @@ class ClientSocket(threading.Thread):
     def handle_changemap(self, game_dat):
         """change a map, game_dat needs to contain a saved game"""
         self.room.change_map(saved_game=game_dat.saved_game)
-        self.broadcast_msg(NewMap(game_dat.saved_game), exclude_self=True)
-        # todo client code add handler for NewMap to swap gameEngine
+        logger.info("host changed map")
 
     @in_room
     def handle_turndata(self, turndata):
