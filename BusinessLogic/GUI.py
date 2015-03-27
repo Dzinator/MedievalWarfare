@@ -537,7 +537,7 @@ class UI:
         self.visible = 0
 
 class Gui:
-    def __init__(self, engine, width, height, name, player, client):
+    def __init__(self, engine, width, height, name, player, client, savedGame):
         sys.setrecursionlimit(10000)
         self.height = height
         self.width = width
@@ -555,6 +555,10 @@ class Gui:
         self.spriteSheetCuts = (4,5)
         self.altDown = False
         self.shiftDown = False
+
+        if savedGame:
+            self.engine = pickle.load(savedGame)
+            self.engine.Gui = self
 
         self.mainClock = pygame.time.Clock()
         shaders.glUseProgram(self.shader)
@@ -1020,8 +1024,12 @@ class Gui:
     def run(self):
         if self.engine.turn == self.player:
            self.beginTurn()
+        won = False
         while self.running:
             clickEvent = False
+            if sum((1 if p.villages else 0 for p in self.engine.players.values())) == 1 and not won:
+                won = True
+                self.client.inQueue.put(WinGame())
             if not self.client.outGameQueue.empty():
                 temp = self.client.outGameQueue.get()
                 clickEvent = True
@@ -1035,6 +1043,8 @@ class Gui:
                             getattr(self.engine,temp.fname)(*temp.fargs)
                         except:
                             print("clients out of sink")
+                elif type(temp) == GameEnd:
+                    self.running = False
                     
             for event in pygame.event.get():
                 if event.type == QUIT:

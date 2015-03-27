@@ -1,4 +1,4 @@
-import subprocess, time
+import subprocess, time, os
 from PySide.QtGui import *
 from PySide import QtCore
 from PySide.QtCore import *
@@ -9,7 +9,7 @@ from message import *
 class ThreadDispatcher(QThread):
     def __init__(self, parent):
         QThread.__init__(self)
-        self.client = Client('127.0.0.1', 8000, "aaron", self)
+        self.client = Client('142.157.148.16', 8000, "aaron", self)
         self.parent = parent
         self.name = ""
         self.running = True
@@ -25,15 +25,24 @@ class ThreadDispatcher(QThread):
                     st =[ p.get('username', 'unknown') +"         status: "+("ready" if p.get('ready', False) else "not ready") for p in msg.playerlist]
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.addItems(st)))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.name.setText(str(msg.roomId)) ))
+                    if self.name == msg.host:
+                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.clear()))
+                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.addItem("Random")))
+                        for dirname, dirnames, filenames in os.walk('./saves') :
+                            for filename in filenames:
+                                QApplication.postEvent(self.parent, _Event(lambda: self.parent.maps.addItem(filename)))
+                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.setCurrentIndex(self.parent.maps.findData("Random" if not msg.current_game else msg.current_game))))
+                    else:
+                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.clear()))
+                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.addItem("Random" if not msg.current_game else msg.current_game)))
                 elif type(msg) == startGame:
-                    QApplication.postEvent(self.parent, _Event(lambda:Engine(1, self.name, msg.player_turn, msg.seed,self.client, len(msg.player_list))))
+                    QApplication.postEvent(self.parent, _Event(lambda:Engine(1, self.name, msg.player_turn, msg.seed,self.client, len(msg.player_list), msg.saved_game)))
                 elif type(msg) ==LoginAck:
                     if msg.success:
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.transition(1)))
                     else:
                         print("Could not login")
                 elif type(msg) == SendRoomList:
-                    print("ids: "+str(msg.room_list))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listLobby.clear()))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listLobby.addItems([str(id) for id in msg.room_list])))
                 elif msg is None:
@@ -46,6 +55,14 @@ class ThreadDispatcher(QThread):
         #self.wait()
         self.running = False
         self.client.s.close()
+
+    def loadMap(name):
+        temp = None
+        if name != "Random":
+            with open("./saves/"+name, 'rb') as f:
+                temp = f.read()
+        self.client.put(ChangeMap(name, temp))
+
 
 class _Event(QEvent):
     EVENT_TYPE = QEvent.Type(QEvent.registerEventType())
@@ -177,8 +194,12 @@ class Main(QWidget):
         buttons = QVBoxLayout()
         refresh = HoverButton('Login', self)
         refresh.setFixedSize(100,60)
-        refresh.clicked.connect(lambda: self.dispatcher.client.inQueue.put(ClientLogin(username.text())) or setattr(self.dispatcher, 'name', username.text()) )
+        refresh.clicked.connect(lambda: self.dispatcher.client.inQueue.put(ClientLogin(username.text(), pw.text())) or setattr(self.dispatcher, 'name', username.text()) )
         buttons.addWidget(refresh)
+        sign = HoverButton('Sign up', self)
+        sign.setFixedSize(100,60)
+        sign.clicked.connect(lambda: self.dispatcher.client.inQueue.put(Signup(username.text(), pw.text())) or setattr(self.dispatcher, 'name', username.text()) )
+        buttons.addWidget(sign)
 
         spacer2 = QWidget(self)
         spacer2.setFixedSize(100,10)
@@ -248,15 +269,12 @@ class Main(QWidget):
         mapName.setFixedSize(100,30)
         buttons.addWidget(mapName)
         
-        combo = QComboBox(self)
-        combo.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;font-size: 10px; ")
-        combo.addItem("Map 1")
-        combo.addItem("Map 2")
-        combo.addItem("Map 3")
-        combo.addItem("Map 4")
-        combo.addItem("Map 5")
+        self.maps = QComboBox(self)
+        self.maps.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;font-size: 10px; ")
+        self.maps.currentIndexChanged[str].connect(lambda: self.dispatcher.loadMap(self.maps.itemData(self.maps.currentIndex())))
+        
 
-        buttons.addWidget(combo)
+        buttons.addWidget(self.maps)
         join = HoverButton('Ready', self)
         join.setFixedSize(100,60)
         join.clicked.connect(lambda: self.dispatcher.client.inQueue.put(ReadyForGame())) #subprocess.Popen("python main.py", shell = True)
