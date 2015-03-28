@@ -91,20 +91,19 @@ class Room():
         self.game_id = ""
         self.saved_game = None
         self.ID = id(self)
-        self._lock = threading.RLock()
+        self._room_lock = threading.RLock()
         self.is_closed = False
         self.game_started = False
 
-    @property
-    def players(self):
-        with self._lock:
-            return tuple(self._players)
+    def get_all_players(self):
+        with self._room_lock:
+            return list(self._players)
 
     def add_player(self, p):
         """
         :type p: ClientSocket
         """
-        with self._lock:
+        with self._room_lock:
             if not self.is_closed:
                 self._players.add(p)
             else:
@@ -114,7 +113,7 @@ class Room():
         """
         :type p: ClientSocket
         """
-        with self._lock:
+        with self._room_lock:
             self._players.remove(p)
             if self.is_empty:
                 return
@@ -125,18 +124,18 @@ class Room():
 
     @property
     def is_empty(self):
-        with self._lock:
+        with self._room_lock:
             return not self._players
 
     def change_map(self, game_id, saved_game):
         """pass in a saved_game"""
-        with self._lock:
+        with self._room_lock:
             self.game_id = game_id
             self.saved_game = saved_game
 
     def close(self):
         """set _is_closed to True"""
-        with self._lock:
+        with self._room_lock:
             if self.is_closed:
                 # someone else already closed it
                 return False
@@ -168,17 +167,17 @@ class ClientSocket(threading.Thread):
         self.room = None
         """:type : Room"""  # type hint for self.room
         self.ready_for_room = False
-        self.close_lock = threading.Lock()
+        self._close_lock = threading.Lock()
         self.is_closed = False
         self.connection_broken = False
         self.reconnect = True
 
     # ----START HELPER FUNCTION----
     @property
-    def player_list(self):
+    def _player_list(self):
         """used to sendRoom"""
         player_l = []  # player_l = {}
-        for p in self.room.players:
+        for p in self.room.get_all_players():
             username, ready = p.username, p.ready_for_room
             p_stats = self.server.player_stats[p.username]
             wins, games = p_stats["wins"], p_stats["games"]
@@ -195,7 +194,7 @@ class ClientSocket(threading.Thread):
         :return: sendRoom"""
         return sendRoom(self.room.ID,
                         self.room.game_id,  # game id no longer used
-                        self.player_list,
+                        self._player_list,
                         self.room.host.username)
 
     @property
@@ -258,9 +257,9 @@ class ClientSocket(threading.Thread):
         if not self.room:
             return
         if exclude_self:
-            players = (p for p in self.room.players if p is not self)
+            players = (p for p in self.room.get_all_players() if p is not self)
         else:
-            players = self.room.players
+            players = self.room.get_all_players()
         for p in players:
             p.sendQ.put(msg)
 
@@ -345,7 +344,7 @@ class ClientSocket(threading.Thread):
         """
         gracefully close the socket and do the clean up
         """
-        with self.close_lock:
+        with self._close_lock:
             if self.is_closed:
                 return
             logger.info("client disconnected: {}".format(self.socket_addr))
@@ -496,11 +495,11 @@ class ClientSocket(threading.Thread):
         self.ready_for_room = True
         self.broadcast_msg(self._sendroom_msg)
         # start game if everyone is ready
-        if all(p.ready_for_room for p in self.room.players):
+        if all(p.ready_for_room for p in self.room.get_all_players()):
             seed = randint(0, 10000000) if not self.room.saved_game else None
-            temp = self.player_list
+            temp = self._player_list
             self.room.game_started = True
-            for i, p in enumerate(self.room.players):
+            for i, p in enumerate(self.room.get_all_players()):
                 p.ready_for_room = False
                 p.sendQ.put(startGame(seed=seed,
                                       player_list=temp,
@@ -533,7 +532,7 @@ class ClientSocket(threading.Thread):
         send SendRoomList msg to everyone in room
         """
         # todo make this work
-        for p in self.room.players:
+        for p in self.room.get_all_players():
             if p is self:
                 p.update_player_stats(new_game=True, new_win=True)
             else:
@@ -706,11 +705,11 @@ class Server():
     """the one and only Server itself"""
 
     def __init__(self, max_connections_allowed=10):
-        self.server_addr = SERVER_ADDR or ("localhost", 8000)
-        self.data_file = "datafile.dat"
+        self._server_addr = SERVER_ADDR or ("localhost", 8000)
+        self._data_file = "datafile.dat"
         # all the clients: {socket: ClientSocket}
-        self.clients = {}
-        self.clients_lock = threading.RLock()
+        self._clients = {}
+        self._clients_lock = threading.RLock()
         # all the rooms: {int: Room}
         self._rooms = {}
         self._rooms_lock = threading.RLock()
@@ -721,7 +720,7 @@ class Server():
             server_socket = socket.socket()
             # enable reuse port when restart server
             server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            server_socket.bind(self.server_addr)
+            server_socket.bind(self._server_addr)
             server_socket.listen(max_connections_allowed)
         except Exception as e:
             logger.error("server socket init failed")
@@ -729,7 +728,7 @@ class Server():
             sys.exit()
         else:
             self.server_socket = server_socket
-            logger.info("server started at {}".format(self.server_addr))
+            logger.info("server started at {}".format(self._server_addr))
 
     # region self.room
     def get_room(self, room_id):
@@ -784,22 +783,22 @@ class Server():
         :type dropped_client_socket: socket.socket
         """
         # dropped_client_socket may already be dropped, if so, skip
-        if self.clients.get(dropped_client_socket):
-            with self.clients_lock:
-                if self.clients.get(dropped_client_socket):
-                    self.clients.pop(dropped_client_socket)
+        if self._clients.get(dropped_client_socket):
+            with self._clients_lock:
+                if self._clients.get(dropped_client_socket):
+                    self._clients.pop(dropped_client_socket)
 
     def summary(self):
         logger.debug("Summary: clients still connected: {}"
-                     .format(self.clients or None))
+                     .format(self._clients or None))
         logger.debug("Summary: rooms not removed: {}"
                      .format(self._rooms or None))
         logger.debug("Summary: remaining threads: {}"
                      .format(threading.enumerate()))
 
     def shut_down(self):
-        with self.clients_lock:
-            client_list = tuple(self.clients.values())
+        with self._clients_lock:
+            client_list = tuple(self._clients.values())
         for c in client_list:
             c.close()
         self.server_socket.close()
@@ -808,22 +807,22 @@ class Server():
             # just to make sure all player status if off
             for ps in self.player_stats.values():
                 ps["status"] = "Offline"
-            with open(self.data_file, "wb") as f:
+            with open(self._data_file, "wb") as f:
                 pickle.dump(self.player_stats, f)
         logger.info("player stats saved")
         self.summary()
 
     def start(self):
         # initilize player_stats
-        if os.path.exists(self.data_file):
-            with open(self.data_file, "rb") as f:
+        if os.path.exists(self._data_file):
+            with open(self._data_file, "rb") as f:
                 # put a try except because data in file might be corrupted
                 try:
                     self.player_stats = pickle.load(f)
                 except Exception:
                     pass
         else:
-            open(self.data_file, 'wb').close()
+            open(self._data_file, 'wb').close()
         # initialize all player status to offline
         for p in self.player_stats.values():
             p["status"] = "Offline"
@@ -841,8 +840,8 @@ class Server():
                 else:
                     new_client = ClientSocket(new_client_socket, self)
                     new_client.setDaemon(True)
-                    with self.clients_lock:
-                        self.clients[new_client_socket] = new_client
+                    with self._clients_lock:
+                        self._clients[new_client_socket] = new_client
                     new_client.start()
 
         # server shutdown
@@ -857,8 +856,8 @@ class Server():
     def get_clientsocket_by_username(self, name):
         """get a clientsocket from clients by username
         this operation is not efficient"""
-        with self.clients_lock:
-            for _, v in self.clients.items():
+        with self._clients_lock:
+            for _, v in self._clients.items():
                 if v.username and v.username == name:
                     return v
 
