@@ -172,7 +172,7 @@ class ClientSocket(threading.Thread):
         self.connection_broken = False
         self.reconnect = True
 
-    # ----START HELPER FUNCTION----
+    # region property
     @property
     def _player_list(self):
         """used to sendRoom"""
@@ -209,7 +209,12 @@ class ClientSocket(threading.Thread):
     def in_game(self):
         return self.room and self.room.game_started
 
+    @property
+    def waiting_for_reconnect(self):
+        return self.connection_broken and self.reconnect
+    # endregion
 
+    # ----START HELPER FUNCTION----
     def update_thread_name(self):
         """set thread name for nicer logging"""
         if self.username:
@@ -352,14 +357,14 @@ class ClientSocket(threading.Thread):
             if self.room:
                 self._leave_room()
             # set the player_stat to logged out if suspended and timed out
-            if self.reconnect and self.connection_broken:
+            if self.waiting_for_reconnect:
                 self.update_player_stats(status="Offline")
             if self.socket:  # this check is necessary for handle_reconnection
                 self.socket.close()
             self.server.drop_connection(self.socket)
             self.is_closed = True
 
-    def wait_for_reconnect(self, timeout=60):
+    def try_wait_for_reconnect(self, timeout=60):
         """after connection is broken, wait for reconnection, return false
         after timeout or if not logged in
         :return : bool"""
@@ -572,7 +577,7 @@ class ClientSocket(threading.Thread):
         close"""
         # still waiting for reconnect
         logger.info("stop waiting and close")
-        if self.connection_broken and self.reconnect:
+        if self.waiting_for_reconnect:
             # close first to write update before the new clientSocket take over
             self.close()
             self.reconnect = False
@@ -606,7 +611,7 @@ class ClientSocket(threading.Thread):
             ":type: BaseClientMessage"
             try:
                 self._send(msg)
-                logger.debug(msg.__class__.__name__)
+                logger.debug("sent message: {}".format(msg.__class__.__name__))
             except PicklingError as e:
                 logger.error("failed to pickle message")
                 logger.debug(e.args[0])
@@ -663,7 +668,7 @@ class ClientSocket(threading.Thread):
                 if not self.in_game:
                     pass
                 # try to wait for reconnect
-                elif self.wait_for_reconnect():
+                elif self.try_wait_for_reconnect():
                     # reconnected successfully
                     # check if threads are still up
                     # send_thread is likely to be alive if it's blocking on
