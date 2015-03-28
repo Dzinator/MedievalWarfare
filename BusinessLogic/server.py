@@ -29,11 +29,11 @@ logger = logging.getLogger(__name__)
 # define global varaibles
 SERVER_ADDR = ("", 8000)
 
-# decorators---------------
+# region decorator
 def logged_in(f):
     @wraps(f)
     def _wrapper(self, msg):
-        return f(self, msg) if self.username else logger.error(
+        return f(self, msg) if self.is_logged_in else logger.error(
             "Unable to handle {} message, player needs to be "
             "logged in".format(msg.__class__.__name__))
 
@@ -58,26 +58,20 @@ def host_only(f):
         return f(self, msg) if self.room.host == self else \
             logger.error("Unable to handle {} message, player must be room "
                          "host".format(msg.__class__.__name__))
+
     return _wrapper
 
 
-def synchronized(loc=None):
-    from threading import Lock
+def in_game(f):
+    @in_room
+    @wraps(f)
+    def _wrapper(self, msg):
+        return f(self, msg) if self.is_in_game else \
+            logger.error("Unable to handle {} message, player must be in game."
+                         .format(msg.__class__.__name__))
 
-    _loc = loc or Lock()
-
-    def _dec(f):
-        @wraps(f)
-        def _wrapper(*args, **kwargs):
-            with _loc:
-                return f(*args, **kwargs)
-
-        return _wrapper
-
-    return _dec
-
-
-# decorators end---------------
+    return _wrapper
+# endregion
 
 
 class Room():
@@ -170,7 +164,7 @@ class ClientSocket(threading.Thread):
         self._close_lock = threading.Lock()
         self.is_closed = False
         self.connection_broken = False
-        self.reconnect = True
+        self.is_taken_over = False
 
     # region property
     @property
@@ -179,7 +173,7 @@ class ClientSocket(threading.Thread):
         player_l = []  # player_l = {}
         for p in self.room.get_all_players():
             username, ready = p.username, p.ready_for_room
-            p_stats = self.server.player_stats[p.username]
+            p_stats = self.server.get_player_stats(p.username)
             wins, games = p_stats["wins"], p_stats["games"]
             player_l.append({
                 "username": username,
@@ -206,18 +200,19 @@ class ClientSocket(threading.Thread):
         return SendRoomList(room_ids)
 
     @property
-    def in_game(self):
-        return self.room and self.room.game_started
+    def is_logged_in(self):
+        return bool(self.username)
 
     @property
-    def waiting_for_reconnect(self):
-        return self.connection_broken and self.reconnect
+    def is_in_game(self):
+        return self.room and self.room.game_started
+
     # endregion
 
     # ----START HELPER FUNCTION----
     def update_thread_name(self):
         """set thread name for nicer logging"""
-        if self.username:
+        if self.is_logged_in:
             self.thread_name = self.username
         self.setName(self.thread_name + "-m")
         self.recv_thread.setName(self.thread_name + "-r")
@@ -226,15 +221,17 @@ class ClientSocket(threading.Thread):
     def _leave_room(self):
         """leave room and push new room status to everyone
         if 2 player game, other player win"""
+        if not self.is_logged_in:
+            return False
         if not self.room:
-            return
+            return False
         self.room.remove_player(self)
         # room empty, close the room
         if self.room.is_empty:
             if self.room.close():
                 self.server.remove_room(self.room.ID)
         # other player(s) still in game
-        elif self.room.game_started:
+        elif self.is_in_game:
             self.broadcast_msg(PlayerLeft(self.username), exclude_self=True)
         self.broadcast_msg(self._sendroom_msg, exclude_self=True)
         self.room = None
@@ -248,7 +245,9 @@ class ClientSocket(threading.Thread):
         :type param status: bool
         :return:
         """
-        player_stats = self.server.player_stats.get(self.username)
+        if not self.is_logged_in:
+            return False
+        player_stats = self.server.get_player_stats(self.username)
         if player_stats:
             if new_win:
                 player_stats["wins"] += 1
@@ -352,45 +351,61 @@ class ClientSocket(threading.Thread):
         with self._close_lock:
             if self.is_closed:
                 return
-            logger.info("client disconnected: {}".format(self.socket_addr))
+            elif self.is_taken_over:
+                pass
+            else:
+                logger.info("client disconnected: {}".format(self.socket_addr))
+                self.update_player_stats(status="Offline")
             # leave any room that client is in
             if self.room:
                 self._leave_room()
-            # set the player_stat to logged out if suspended and timed out
-            if self.waiting_for_reconnect:
-                self.update_player_stats(status="Offline")
-            if self.socket:  # this check is necessary for handle_reconnection
-                self.socket.close()
-            self.server.drop_connection(self.socket)
+            self.socket.close()
+            self.server.drop_client(self.socket)
             self.is_closed = True
 
-    def try_wait_for_reconnect(self, timeout=60):
-        """after connection is broken, wait for reconnection, return false
-        after timeout or if not logged in
+    def try_restore_connection(self, timeout=60):
+        """after connection is broken, wait for reconnection,
+        return false after timeout.
         :return : bool"""
-        # not logged in, no need to reconnect
-        if not self.username:
+        if not self.is_logged_in:
             return False
-        countdown = timeout
+        if not self.is_in_game:
+            return False
         logger.info("waiting for client to reconnect...")
-        while countdown > 0:
-            # if client login instead of reconnect
-            if not self.reconnect:
-                return False
-            # reconnection success
-            elif not self.connection_broken:
-                return True
+        while timeout > 0:
             # sleep 1 sec
-            else:
-                countdown -= 1
-                # logger.debug("debug: waiting...")
-                time.sleep(1)
+            timeout -= 1
+            time.sleep(1)
+            # other clientsocket has taken over
+            if self.is_taken_over:
+                return False
+            # reconnected
+            elif not self.connection_broken:
+                logger.info("client reconnected")
+                return True
+        logger.warning("client connection time out")
+
+    def take_over(self, old_clientsocket):
+        """take over the old_clientsocket
+        :type old_clientsocket: ClientSocket
+        """
+        old_clientsocket.is_taken_over = True
+        self.update_player_stats(status="Online")
+
+    def reconnect(self, old_clientsocket):
+        """reconnect to the old_clientsocket
+        :type old_clientsocket: ClientSocket"""
+        old_clientsocket.socket = self.socket
+        old_clientsocket.socket_addr = self.socket_addr
+        self.socket = self.socket_addr = None
+        old_clientsocket.connection_broken = False
+        self.close()
 
     def handle_clientlogin(self, login_message):
         """link client socket to client username"""
         # check if this username exists
         username = login_message.username
-        userstat = self.server.player_stats.get(username)
+        userstat = self.server.get_player_stats(username)
         if userstat:
             # check if this username is already logged in
             if userstat["status"] == "Online":
@@ -400,25 +415,18 @@ class ClientSocket(threading.Thread):
                 return
             # the user is trying to login again while suspended
             elif userstat["status"] == "Suspend":
-                # tells the old clientSocket to stop waiting
-                old_client_socket = self.server.get_clientsocket_by_username(
+                old_clientsocket = self.server.get_clientsocket_by_username(
                     username)
                 """:type : ClientSocket"""
-                # still waiting
-                if old_client_socket.connection_broken:
-                    old_client_socket.stop_waiting_on_reconnect()
-                    logger.info("client re-logged in as {}: {}"
+                if not old_clientsocket.connection_broken or \
+                        old_clientsocket.is_taken_over:
+                    logger.info("re-login failed {}: {}"
                                 .format(username, self.socket_addr))
-                    # self.username = username
-                    # self.update_player_stats(status="Online")
-                    # self.update_thread_name()
-                    # self.sendQ.put(LoginAck(True))
-                    # self.sendQ.put(self._sendroomlist)
-                else:
-                    logger.info("bad, bad, bad: should never happen")
-                    return
-
-            else:
+                # take over
+                self.take_over(old_clientsocket)
+                logger.info("client re-logged in as {}: {}"
+                            .format(username, self.socket_addr))
+            elif userstat["status"] == "Offline":
                 if userstat["password"] == login_message.passwd:
                     logger.info("client logged in as {}: {}"
                                 .format(username, self.socket_addr))
@@ -438,7 +446,7 @@ class ClientSocket(threading.Thread):
 
     def handle_signup(self, signup_dat):
         username = signup_dat.username
-        userstat = self.server.player_stats.get(username)
+        userstat = self.server.get_player_stats(username)
         # check if this username exists
         if userstat:
             logger.info("username exist already! {}".format(username))
@@ -447,8 +455,8 @@ class ClientSocket(threading.Thread):
         else:
             if signup_dat.username and signup_dat.passwd:
                 # create this name
-                self.server.make_new_player(signup_dat.username,
-                                            signup_dat.passwd)
+                self.server.create_player_profile(signup_dat.username,
+                                                  signup_dat.passwd)
                 logger.info("new profile created: {}".format(username))
             else:
                 logger.info("username or password not supplied for signup")
@@ -484,7 +492,6 @@ class ClientSocket(threading.Thread):
             self.sendQ.put(self._sendroomlist)
         else:
             self.broadcast_msg(self._sendroom_msg)
-
 
     @logged_in
     def handle_createroom(self, dat):
@@ -526,11 +533,11 @@ class ClientSocket(threading.Thread):
         self.room.change_map(game_id=game_id, saved_game=saved_game)
         logger.info("host changed map, map will be send at game start")
 
-    @in_room
+    @in_game
     def handle_turndata(self, turndata):
         self.broadcast_msg(turndata, exclude_self=True)
 
-    @in_room
+    @in_game
     def handle_wingame(self, dat):
         """update player_stats
         send GameEnd msg to everyone in room
@@ -547,41 +554,27 @@ class ClientSocket(threading.Thread):
         # self.broadcast_msg(self._sendroomlist)
         self.broadcast_msg(self._sendroom_msg)
 
-    @in_room
+    @in_game
     def handle_leavegame(self, login_data):
         pass
 
     def handle_reconnectrequest(self, reconnect_data):
-        """this is a hack, far from perfect"""
-        username = getattr(reconnect_data, "username", None)
-        userstats = self.server.player_stats.get(username)["status"]
-        if username and (userstats == "Suspend"):
+        """reconnect request to try to reconnect while in game
+        :type reconnect_data: ReconnectRequest"""
+        username = reconnect_data.username
+        userstats = self.server.get_player_stats(username)
+        if userstats and userstats["status"] == "Suspend":
             # let the old clientSocket swap its socket
             cs = self.server.get_clientsocket_by_username(username)
-            if cs.connection_broken:
-                cs.socket = self.socket
-                cs.socket_addr = self.socket_addr
-                self.socket = None  # just to make sure detached completely
-                cs.connection_broken = False
+            ":type: ClientSocket"
+            if cs.connection_broken and not cs.is_taken_over and cs.is_in_game:
+                self.reconnect(cs)
             else:
                 logger.warning("client try to reconnect but connection is "
                                "not broken")
-                return
         else:
             logger.warning("reconnection msg does not have username or "
                            "username is un-registered with server")
-            return
-
-    def stop_waiting_on_reconnect(self):
-        """if current clientSocket is waiting for reconnect, stop it and
-        close"""
-        # still waiting for reconnect
-        logger.info("stop waiting and close")
-        if self.waiting_for_reconnect:
-            # close first to write update before the new clientSocket take over
-            self.close()
-            self.reconnect = False
-
 
     def handle_message(self, msg):
         """
@@ -605,7 +598,7 @@ class ClientSocket(threading.Thread):
         """
         a sub send-thread execute this function to send message stored in sendQ
         """
-        while 1:
+        while not self.is_closed and self.socket:
             # send the message
             msg = self.sendQ.get()  # block on get from sendQ
             ":type: BaseClientMessage"
@@ -627,7 +620,7 @@ class ClientSocket(threading.Thread):
         """
         a sub receive-thread execute this function to receive and handle msg
         """
-        while 1:
+        while not self.is_closed and self.socket:
             try:
                 # block on recv
                 new_msg = self._recv()
@@ -663,12 +656,10 @@ class ClientSocket(threading.Thread):
         self.send_thread.start()
         self.recv_thread.start()
         logger.info("new client connected: {}".format(self.socket_addr))
-        while True:
+        while not self.is_closed:
             if self.connection_broken:
-                if not self.in_game:
-                    pass
                 # try to wait for reconnect
-                elif self.try_wait_for_reconnect():
+                if self.try_restore_connection():
                     # reconnected successfully
                     # check if threads are still up
                     # send_thread is likely to be alive if it's blocking on
@@ -688,22 +679,16 @@ class ClientSocket(threading.Thread):
                     self.recv_thread.daemon = True
                     self.update_thread_name()
                     self.recv_thread.start()
-
-                    logger.info("client reconnected")
                     continue
 
-                # reconnection timeout
+                # reconnect failed
                 else:
-                    # time out instead of relogin
-                    if self.username and self.reconnect:
-                        logger.warning(
-                            "client connection time out, disconnecting")
-                    self.close()
-                    return
+                    break
 
             # check connection in 1 second
             else:
                 time.sleep(1)
+        self.close()
 
 
 class Server():
@@ -719,7 +704,8 @@ class Server():
         self._rooms = {}
         self._rooms_lock = threading.RLock()
         # all the player stats: {str: dict}
-        self.player_stats = {}
+        self._player_stats = {}
+        self._player_stats_lock = threading.RLock()
 
         try:
             server_socket = socket.socket()
@@ -771,49 +757,82 @@ class Server():
         """return a list of rooms not in game"""
         with self._rooms_lock:
             ret = [k for k, v in self._rooms if not v.game_started]
-            assert (ret <= list(self._rooms.keys())) # lobby room is a subset
+            assert (ret <= list(self._rooms.keys()))  # lobby room is a subset
             return ret
+
     # endregion
 
-    def make_new_player(self, username, password):
-        """create a new player profile and add to player_stats"""
-        new_player_stats = {"wins": 0, "games": 0, "status": "Online",
-                            "password": password}
-        self.player_stats.setdefault(username, new_player_stats)
+    # region player_stats
+    def get_player_stats(self, username):
+        with self._player_stats_lock:
+            return self._player_stats.get(username)
 
-    def drop_connection(self, dropped_client_socket):
+    def _get_all_player_profile(self):
+        with self._player_stats_lock:
+            return list(self._player_stats.values())
+
+    def create_player_profile(self, username, password):
+        """create a new player profile and add to player_stats"""
+        with self._player_stats_lock:
+            if self.get_player_stats(username):
+                return False
+            new_player_stats = {"wins": 0, "games": 0, "status": "Offline",
+                                "password": password}
+            self._player_stats[username] = new_player_stats
+            return new_player_stats
+
+    # endregion
+
+    # region _clients
+    def new_client_connected(self, new_sock, new_clientsocket):
+        with self._clients_lock:
+            if not self._clients.get(new_sock):
+                self._clients[new_sock] = new_clientsocket
+
+    def drop_client(self, dropped_client_sock):
         """
         handler for connection drop
         will remove the connection from connection pool
-        :type dropped_client_socket: socket.socket
+        :type dropped_client_sock: socket.socket
         """
-        # dropped_client_socket may already be dropped, if so, skip
-        if self._clients.get(dropped_client_socket):
-            with self._clients_lock:
-                if self._clients.get(dropped_client_socket):
-                    self._clients.pop(dropped_client_socket)
+        with self._clients_lock:
+            if self._clients.get(dropped_client_sock):
+                self._clients.pop(dropped_client_sock)
+
+    def get_all_clients(self):
+        with self._clients_lock:
+            return list(self._clients.values())
+
+    def get_clientsocket_by_username(self, name):
+        """get a clientsocket from clients by username
+        this operation is not efficient"""
+        with self._clients_lock:
+            for _, v in self._clients.items():
+                if v.username and v.username == name:
+                    return v
+
+    # endregion
 
     def summary(self):
         logger.debug("Summary: clients still connected: {}"
-                     .format(self._clients or None))
+                     .format(self.get_all_clients() or None))
         logger.debug("Summary: rooms not removed: {}"
                      .format(self._rooms or None))
         logger.debug("Summary: remaining threads: {}"
                      .format(threading.enumerate()))
 
     def shut_down(self):
-        with self._clients_lock:
-            client_list = tuple(self._clients.values())
+        client_list = self.get_all_clients()
         for c in client_list:
             c.close()
         self.server_socket.close()
         logger.info("server socket is closed")
-        if self.player_stats:
-            # just to make sure all player status if off
-            for ps in self.player_stats.values():
-                ps["status"] = "Offline"
-            with open(self._data_file, "wb") as f:
-                pickle.dump(self.player_stats, f)
+        # set all player status to Offline
+        for prof in self._get_all_player_profile():
+            prof["status"] = "Offline"
+        # write profile to disk
+        with open(self._data_file, "wb") as f:
+            pickle.dump(self._player_stats, f)
         logger.info("player stats saved")
         self.summary()
 
@@ -823,14 +842,14 @@ class Server():
             with open(self._data_file, "rb") as f:
                 # put a try except because data in file might be corrupted
                 try:
-                    self.player_stats = pickle.load(f)
+                    self._player_stats = pickle.load(f)
                 except Exception:
                     pass
         else:
             open(self._data_file, 'wb').close()
         # initialize all player status to offline
-        for p in self.player_stats.values():
-            p["status"] = "Offline"
+        for prof in self._get_all_player_profile():
+            prof["status"] = "Offline"
 
         # main loop
         try:
@@ -846,25 +865,18 @@ class Server():
                     new_client = ClientSocket(new_client_socket, self)
                     new_client.setDaemon(True)
                     with self._clients_lock:
-                        self._clients[new_client_socket] = new_client
+                        self.new_client_connected(new_client_socket,
+                                                  new_client)
                     new_client.start()
 
         # server shutdown
         except KeyboardInterrupt:
             logger.info("Server Shutting down from Keyboard")
-            self.shut_down()
         except Exception as e:
             logger.critical("Unexpected Exception: Server Shutdown")
             logger.exception(e)
+        finally:
             self.shut_down()
-
-    def get_clientsocket_by_username(self, name):
-        """get a clientsocket from clients by username
-        this operation is not efficient"""
-        with self._clients_lock:
-            for _, v in self._clients.items():
-                if v.username and v.username == name:
-                    return v
 
 
 if __name__ == "__main__":
