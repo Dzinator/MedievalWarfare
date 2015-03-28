@@ -192,6 +192,14 @@ class ClientSocket(threading.Thread):
                         self.room.host.username)
 
     @property
+    def _sendroomlist(self):
+        """helper to create a SendRoomList msg
+        only return rooms not in game
+        :return: SendRoomList"""
+        room_ids = self.server.get_room_ids_in_lobby()
+        return SendRoomList(room_ids)
+
+    @property
     def in_game(self):
         return self.room and self.room.game_started
 
@@ -205,8 +213,12 @@ class ClientSocket(threading.Thread):
         self.send_thread.setName(self.thread_name + "-s")
 
     def _leave_room(self):
-        """leave room and push new room status to everyone"""
+        """leave room and push new room status to everyone
+        if 2 player game, other player win"""
+        if not self.room:
+            return
         self.room.remove_player(self)
+        # room empty, close the room
         if self.room.is_empty:
             if self.room.close():
                 self.server.rooms.pop(self.room.ID)
@@ -390,7 +402,7 @@ class ClientSocket(threading.Thread):
                     # self.update_player_stats(status="Online")
                     # self.update_thread_name()
                     # self.sendQ.put(LoginAck(True))
-                    # self.sendQ.put(SendRoomList(self.server.all_room_ids))
+                    # self.sendQ.put(self._sendroomlist)
                 else:
                     logger.info("bad, bad, bad: should never happen")
                     return
@@ -411,7 +423,7 @@ class ClientSocket(threading.Thread):
         self.update_player_stats(status="Online")
         self.update_thread_name()
         self.sendQ.put(LoginAck(True))
-        self.sendQ.put(SendRoomList(self.server.all_room_ids))
+        self.sendQ.put(self._sendroomlist)
 
     def handle_signup(self, signup_dat):
         username = signup_dat.username
@@ -437,12 +449,12 @@ class ClientSocket(threading.Thread):
         self.update_player_stats(status=True)
         self.update_thread_name()
         self.sendQ.put(LoginAck(True))
-        self.sendQ.put(SendRoomList(self.server.all_room_ids))
+        self.sendQ.put(self._sendroomlist)
 
 
     @logged_in
     def handle_getroomlist(self, dat):
-        self.sendQ.put(SendRoomList(self.server.all_room_ids))
+        self.sendQ.put(self._sendroomlist)
 
     @in_room
     def handle_chatmessage(self, chat_message):
@@ -458,7 +470,7 @@ class ClientSocket(threading.Thread):
             logger.info("trying to join a room that does not exist: {}"
                         .format(room_data.roomId))
             # send a new room list
-            self.sendQ.put(SendRoomList(self.server.all_room_ids))
+            self.sendQ.put(self._sendroomlist)
         else:
             self.broadcast_msg(self._sendroom_msg)
 
@@ -495,7 +507,7 @@ class ClientSocket(threading.Thread):
     def handle_leaveroom(self, dat):
         """call _leave_room and send a room list to client"""
         self._leave_room()
-        self.sendQ.put(SendRoomList(self.server.all_room_ids))
+        self.sendQ.put(self._sendroomlist)
 
     @host_only
     def handle_changemap(self, game_dat):
@@ -524,7 +536,7 @@ class ClientSocket(threading.Thread):
                 p.update_player_stats(new_game=True)
         self.room.game_started = False
         self.broadcast_msg(GameEnd())
-        # self.broadcast_msg(SendRoomList(self.server.all_room_ids))
+        # self.broadcast_msg(self._sendroomlist)
         self.broadcast_msg(self._sendroom_msg)
 
     @in_room
@@ -697,6 +709,7 @@ class Server():
         self.clients_lock = threading.RLock()
         # all the rooms: {int: Room}
         self.rooms = {}
+        self.room_lock = threading.RLock()
         # all the player stats: {str: dict}
         self.player_stats = {}
 
@@ -717,7 +730,15 @@ class Server():
     @property
     def all_room_ids(self):
         """return a list of all room ids"""
-        return list(self.rooms.keys())
+        with self.room_lock:
+            return list(self.rooms.keys())
+
+    def get_room_ids_in_lobby(self):
+        """return a list of rooms not in game"""
+        with self.room_lock:
+            ret = [k for k, v in self.rooms if not v.game_started]
+            assert (ret <= list(self.rooms.keys()))
+            return ret
 
     def make_new_player(self, username, password):
         """create a new player profile and add to player_stats"""
