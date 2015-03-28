@@ -210,8 +210,10 @@ class ClientSocket(threading.Thread):
         if self.room.is_empty:
             if self.room.close():
                 self.server.rooms.pop(self.room.ID)
-        else:
-            self.broadcast_msg(self._sendroom_msg, exclude_self=True)
+        # other player(s) still in game
+        elif self.room.game_started:
+            self.broadcast_msg(PlayerLeft(self.username), exclude_self=True)
+        self.broadcast_msg(self._sendroom_msg, exclude_self=True)
         self.room = None
         self.ready_for_room = False
 

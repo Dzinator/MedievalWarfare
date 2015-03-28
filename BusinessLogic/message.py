@@ -130,6 +130,12 @@ class ChatMessage(BaseClientMessage):
         self.sender = sender
         self.message = message
 
+class PlayerLeft(BaseClientMessage):
+    """send by server: notify other players that a player had left the game"""
+
+    def __init__(self, player):
+        super().__init__()
+        self.player = player
 
 # experiment
 class ReconnectRequest(BaseClientMessage):
