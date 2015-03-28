@@ -75,6 +75,27 @@ def recv_from_server(my_sock):
     msg = pickle.loads(pmsg)
     return msg
 
+def _make_sock():
+    ret = socket.socket()
+    ret.connect(SERVER_ADDR)
+    return ret
+
+def _close_sock(sock):
+    sock.close()
+
+def _signup_as(sock, username, password):
+    signupM = Signup(username, password)
+    send_to_server(sock, signupM)
+    receivedM = recv_from_server(sock)
+    ":type: LoginAck"
+    return isinstance(receivedM, LoginAck) and (receivedM.success is True)
+
+def _login_as(sock, username, password):
+    loginM = ClientLogin(username, password)
+    send_to_server(sock, loginM)
+    receivedM = recv_from_server(sock)
+    ":type: LoginAck"
+    return isinstance(receivedM, LoginAck) and (receivedM.success is True)
 
 class testServer(unittest.TestCase):
     def testDisconnectAndReconnect(self):
@@ -88,24 +109,16 @@ class testServer(unittest.TestCase):
 
     def testSignup(self):
         """test sign up"""
-        Juliet = socket.socket()
-        Juliet.connect(SERVER_ADDR)
-        sendM = Signup("Juliet", 123456)
-        send_to_server(Juliet, sendM)
-        receivedM = recv_from_server(asdfghjkl)
+        test1 = _make_sock()
+        self.assertTrue(_signup_as(test1, "test1", "123"))
+        _close_sock(test1)
 
 
     def testLoginBeforeSignup(self):
         """username must sign up first to be known by server"""
-        asdfghjkl = socket.socket()
-        asdfghjkl.connect(SERVER_ADDR)
-        loginM = ClientLogin("asdfghjkl", "password")
-        send_to_server(asdfghjkl, loginM)
-        receivedM = recv_from_server(asdfghjkl)
-        assert isinstance(receivedM, LoginAck)
-        assert (receivedM.success is False)
-        asdfghjkl.close()
-
+        asdfghjkl = _make_sock()
+        self.assertFalse(_login_as(asdfghjkl, "asdfghjkl", "password"))
+        _close_sock(asdfghjkl)
 
 
     def testLoginAndRelogin(self):
