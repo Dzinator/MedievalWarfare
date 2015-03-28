@@ -144,13 +144,19 @@ class Client:
             return buf
 
         # ----END------------
-        pmsg_len = receive_len_header(my_sock)
-        pmsg = recv_real_message(my_sock, pmsg_len)
-
         try:
-            msg = pickle.loads(pmsg)
+            message_len = receive_len_header(self.socket)
+            if not message_len:
+                raise Exception("connection broken")
+            new_pmsg = recv_real_message(self.socket, message_len)  # pickled
+            if not new_pmsg:
+                raise Exception("connection broken")
+        except Exception:  # connection broken
+            raise Exception("connection broken")
+        try:
+            msg = pickle.loads(new_pmsg)
         except Exception:
-            raise UnpicklingError(pmsg)
+            raise UnpicklingError(new_pmsg)
         return msg
 
     def send(self):
