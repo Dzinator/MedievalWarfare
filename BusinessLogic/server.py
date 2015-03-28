@@ -87,6 +87,7 @@ class Room():
         """
         self._players = set()
         self.host = host
+        self.add_player(host)
         self.game_id = ""
         self.saved_game = None
         self.ID = id(self)
@@ -100,6 +101,9 @@ class Room():
             return tuple(self._players)
 
     def add_player(self, p):
+        """
+        :type p: ClientSocket
+        """
         with self._lock:
             if not self.is_closed:
                 self._players.add(p)
@@ -107,6 +111,9 @@ class Room():
                 raise Exception("Cannot join a closed room {}".format(self.ID))
 
     def remove_player(self, p):
+        """
+        :type p: ClientSocket
+        """
         with self._lock:
             self._players.remove(p)
             if self.is_empty:
@@ -221,7 +228,7 @@ class ClientSocket(threading.Thread):
         # room empty, close the room
         if self.room.is_empty:
             if self.room.close():
-                self.server.rooms.pop(self.room.ID)
+                self.server.remove_room(self.room.ID)
         # other player(s) still in game
         elif self.room.game_started:
             self.broadcast_msg(PlayerLeft(self.username), exclude_self=True)
@@ -464,7 +471,7 @@ class ClientSocket(threading.Thread):
     def handle_joinroom(self, room_data):
         """joining a existed room by id"""
         try:
-            self.room = self.server.rooms[room_data.roomId]
+            self.room = self.server.get_room(room_data.roomId)
             self.room.add_player(self)
         except Exception:
             logger.info("trying to join a room that does not exist: {}"
@@ -479,10 +486,7 @@ class ClientSocket(threading.Thread):
     def handle_createroom(self, dat):
         """create a room for client"""
         # generate room
-        self.room = Room(self)
-        self.room.add_player(self)
-        # put the room to server
-        self.server.rooms[self.room.ID] = self.room
+        self.room = self.server.create_room(self)
         self.broadcast_msg(self._sendroom_msg)
 
     @in_room
@@ -708,8 +712,8 @@ class Server():
         self.clients = {}
         self.clients_lock = threading.RLock()
         # all the rooms: {int: Room}
-        self.rooms = {}
-        self.room_lock = threading.RLock()
+        self._rooms = {}
+        self._rooms_lock = threading.RLock()
         # all the player stats: {str: dict}
         self.player_stats = {}
 
@@ -727,18 +731,45 @@ class Server():
             self.server_socket = server_socket
             logger.info("server started at {}".format(self.server_addr))
 
+    # region self.room
+    def get_room(self, room_id):
+        """
+        :type room_id: int
+        """
+        with self._rooms_lock:
+            return self._rooms.get(room_id)
+
+    def create_room(self, host):
+        """
+        use this method to create a room
+        :type host: ClientSocket
+        :rtype : Room
+        """
+        with self._rooms_lock:
+            new_room = Room(host)
+            self._rooms[new_room.ID] = new_room
+            return new_room
+
+    def remove_room(self, room_id):
+        """
+        :type room_id: int
+        """
+        with self._rooms_lock:
+            return self._rooms.pop(room_id)
+
     @property
     def all_room_ids(self):
         """return a list of all room ids"""
-        with self.room_lock:
-            return list(self.rooms.keys())
+        with self._rooms_lock:
+            return list(self._rooms.keys())
 
     def get_room_ids_in_lobby(self):
         """return a list of rooms not in game"""
-        with self.room_lock:
-            ret = [k for k, v in self.rooms if not v.game_started]
-            assert (ret <= list(self.rooms.keys()))
+        with self._rooms_lock:
+            ret = [k for k, v in self._rooms if not v.game_started]
+            assert (ret <= list(self._rooms.keys())) # lobby room is a subset
             return ret
+    # endregion
 
     def make_new_player(self, username, password):
         """create a new player profile and add to player_stats"""
@@ -762,7 +793,7 @@ class Server():
         logger.debug("Summary: clients still connected: {}"
                      .format(self.clients or None))
         logger.debug("Summary: rooms not removed: {}"
-                     .format(self.rooms or None))
+                     .format(self._rooms or None))
         logger.debug("Summary: remaining threads: {}"
                      .format(threading.enumerate()))
 
