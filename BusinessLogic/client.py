@@ -13,7 +13,6 @@ class Client:
         self.port = p
         self.name = n
         self.engine = e
-        self.reconnect = reconnect
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.settimeout(2)
@@ -23,7 +22,7 @@ class Client:
         except :
             print ('Unable to connect')
             sys.exit()
-         
+
         print ('Connected to remote host. Start sending messages')
         #self.prompt()
 
@@ -36,23 +35,30 @@ class Client:
         self.inputThread.start()
         self.outputThread.start()
 
-        if self.reconnect:
+        if reconnect:
             self.monitorThread = threading.Thread(target=self.do_reconnect)
             self.monitorThread.daemon = True
             self.monitorThread.start()
 
-    def do_reconnect(self):
+    def do_reconnect(self, timeout=60):
         """a monitor thread will run this function and monitor if connection
         is broken, if so, will try to re-establish connection to server"""
-        while True:
-            if self.reconnect and self.connection_broken:
+        default_timeout = timeout
+        while timeout > 0:
+            if self.connection_broken:
+                # try to create a new socket and connect
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(2)
                 try:
-                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    s.settimeout(2)
                     s.connect((self.host, self.port))
+                # connect failed, try again later
                 except Exception:
+                    s.close()
                     print("reconnection failed, try again in 1 second")
+                    timeout -= 1
                     time.sleep(1)
+                    continue
+                # reconnected
                 else:
                     self.connection_broken = False
                     self.s = s
@@ -81,15 +87,21 @@ class Client:
                         # happened. It's better just terminate the program
                         print("outputThread still alive after connection "
                               "broken, this should not have happened. Exiting")
-                        return
+                        self.connection_broken = True
+                        self.s.close()
+                        sys.exit(1)
+                    # reconnect successfully
                     print("reconnected to server")
-            else:
-                # just wait for connection to break
-                time.sleep(1)
+            # connection is alive
+            timeout = default_timeout
+            time.sleep(1)
+        # timeout
+        print("reconnect timeout")
+        sys.exit(1)
 
 
     def receive(self):
-        while True:
+        while not self.connection_broken:
             socket_list = [self.s]
             try:
                 read_sockets, write_sockets, error_sockets = select.select(socket_list , [], [])
@@ -145,10 +157,10 @@ class Client:
 
         # ----END------------
         try:
-            message_len = receive_len_header(self.socket)
+            message_len = receive_len_header(my_sock)
             if not message_len:
                 raise Exception("connection broken")
-            new_pmsg = recv_real_message(self.socket, message_len)  # pickled
+            new_pmsg = recv_real_message(my_sock, message_len)  # pickled
             if not new_pmsg:
                 raise Exception("connection broken")
         except Exception:  # connection broken
@@ -160,7 +172,7 @@ class Client:
         return msg
 
     def send(self):
-        while True:
+        while not self.connection_broken:
             if not self.inQueue.empty():
                 with self.lock:
                     temp = self.inQueue.get()
