@@ -150,7 +150,6 @@ class ClientSocket(threading.Thread):
         super().__init__()
         self.server = server
         self.socket = sock
-        self.socket_addr = self.socket.getpeername()
         self.username = None
         ":type: str"
         # make a temporary unique name before username is available
@@ -167,6 +166,12 @@ class ClientSocket(threading.Thread):
         self.is_taken_over = False
 
     # region property
+    @property
+    def _socket_address(self):
+        """get the socket address of this client"""
+        if self.socket:
+            return self.socket.getpeername()
+
     @property
     def _player_list(self):
         """used to sendRoom"""
@@ -354,7 +359,8 @@ class ClientSocket(threading.Thread):
             elif self.is_taken_over:
                 pass
             else:
-                logger.info("client disconnected: {}".format(self.socket_addr))
+                logger.info("client disconnected: {}".format(
+                    self._socket_address))
                 self.update_player_stats(status="Offline")
             # leave any room that client is in
             if self.room:
@@ -392,13 +398,18 @@ class ClientSocket(threading.Thread):
         old_clientsocket.is_taken_over = True
         self.update_player_stats(status="Online")
 
-    def reconnect(self, old_clientsocket):
-        """reconnect to the old_clientsocket
-        :type old_clientsocket: ClientSocket"""
-        old_clientsocket.socket = self.socket
-        old_clientsocket.socket_addr = self.socket_addr
-        self.socket = self.socket_addr = None
-        old_clientsocket.connection_broken = False
+    def reconnect(self, old_cs):
+        """reconnect to the old clientsocket
+        :type old_cs: ClientSocket"""
+        # this is needed for close to behave properly
+        self.is_taken_over = True
+        # swap socket with old client
+        self.socket, old_cs.socket = old_cs.socket, self.socket
+        self.server.update_clientsocket(old_cs.socket, old_cs)
+        self.server.drop_client(self.socket)
+        # old client is ready to go
+        old_cs.connection_broken = False
+        # do the clean up for the old socket
         self.close()
 
     def handle_clientlogin(self, login_message):
@@ -421,15 +432,15 @@ class ClientSocket(threading.Thread):
                 if not old_clientsocket.connection_broken or \
                         old_clientsocket.is_taken_over:
                     logger.info("re-login failed {}: {}"
-                                .format(username, self.socket_addr))
+                                .format(username, self._socket_address))
                 # take over
                 self.take_over(old_clientsocket)
                 logger.info("client re-logged in as {}: {}"
-                            .format(username, self.socket_addr))
+                            .format(username, self._socket_address))
             elif userstat["status"] == "Offline":
                 if userstat["password"] == login_message.passwd:
                     logger.info("client logged in as {}: {}"
-                                .format(username, self.socket_addr))
+                                .format(username, self._socket_address))
                 else:
                     logger.info("password wrong! {}".format(username))
                     self.sendQ.put(LoginAck(False))
@@ -463,7 +474,7 @@ class ClientSocket(threading.Thread):
                 self.sendQ.put(LoginAck(False))
                 return
         logger.info("client logged in as {}: {}"
-                    .format(username, self.socket_addr))
+                    .format(username, self._socket_address))
         self.username = username
         self.update_player_stats(status=True)
         self.update_thread_name()
@@ -655,7 +666,7 @@ class ClientSocket(threading.Thread):
         self.update_thread_name()
         self.send_thread.start()
         self.recv_thread.start()
-        logger.info("new client connected: {}".format(self.socket_addr))
+        logger.info("new client connected: {}".format(self._socket_address))
         while not self.is_closed:
             if self.connection_broken:
                 # try to wait for reconnect
@@ -810,6 +821,13 @@ class Server():
             for _, v in self._clients.items():
                 if v.username and v.username == name:
                     return v
+
+    def update_clientsocket(self, sock, new_clientsocket):
+        """swap a ClientSocket in self._clients
+        this function is needed to implement the reconnect funtionality"""
+        with self._clients_lock:
+            assert self._clients.get(sock)
+            self._clients[sock] = new_clientsocket
 
     # endregion
 
