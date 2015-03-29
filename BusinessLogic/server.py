@@ -362,10 +362,12 @@ class ClientSocket(threading.Thread):
                 logger.info("client disconnected: {}".format(
                     self._socket_address))
                 self.update_player_stats(status="Offline")
-            # leave any room that client is in
+
+            # graceful clean up procedure
             if self.room:
                 self._leave_room()
-            self.socket.close()
+            if self.socket:
+                self.socket.close()
             self.server.drop_client(self.socket)
             self.is_closed = True
 
@@ -649,7 +651,11 @@ class ClientSocket(threading.Thread):
                     self.connection_broken = True
                     logger.info("client connection is broken")
                 return
-            self.handle_message(new_msg)
+            try:
+                self.handle_message(new_msg)
+            except Exception as e:
+                logger.critical(e)
+                self.close()
 
     def run(self):
         """
@@ -669,6 +675,8 @@ class ClientSocket(threading.Thread):
         logger.info("new client connected: {}".format(self._socket_address))
         while not self.is_closed:
             if self.connection_broken:
+                if self.is_closed:
+                    break
                 # try to wait for reconnect
                 if self.try_restore_connection():
                     # reconnected successfully
@@ -810,7 +818,7 @@ class Server():
             if self._clients.get(dropped_client_sock):
                 self._clients.pop(dropped_client_sock)
 
-    def get_all_clients(self):
+    def _get_all_clients(self):
         with self._clients_lock:
             return list(self._clients.values())
 
@@ -833,14 +841,14 @@ class Server():
 
     def summary(self):
         logger.debug("Summary: clients still connected: {}"
-                     .format(self.get_all_clients() or None))
+                     .format(self._get_all_clients() or None))
         logger.debug("Summary: rooms not removed: {}"
                      .format(self._rooms or None))
         logger.debug("Summary: remaining threads: {}"
                      .format(threading.enumerate()))
 
     def shut_down(self):
-        client_list = self.get_all_clients()
+        client_list = self._get_all_clients()
         for c in client_list:
             c.close()
         self.server_socket.close()
