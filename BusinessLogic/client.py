@@ -127,7 +127,7 @@ class Client:
                             print("connection borken")
                             return
                         else :
-                            if type(temp) == ChatMessage or type(temp) == TurnData:
+                            if type(temp) == ChatMessage or type(temp) == TurnData or type(temp) == GameEnd:
                                 self.outGameQueue.put(temp)
                             else:
                                 self.outLauncherQueue.put(temp)

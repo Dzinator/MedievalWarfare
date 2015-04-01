@@ -231,9 +231,8 @@ class Grid:
         ratio = width/height
         self.hexes = {x+y*20 :Hex(self.sp*1.5*(x*2+(y%2)+1/3)-30*self.sp,y*self.sp*math.sin(math.pi/3)-20*self.sp,self.d, math.sqrt(abs((x-9)*1.5)**2+abs((y-22)/1.7)**2), x+y*20, len(self.engine.players))  for y in range(45) for x in range(20)}
         self.land = [h for h in self.hexes.values() if not h.water]
-        self.water = [h for h in self.hexes.values() if h.water]
-        for h in self.hexes.values():
-            h.neighbours = [g for g in self.hexes.values() if h != g and inCircle(h.centre,g.centre, self.sp*2+.02)]
+        for h in self.land:
+            h.neighbours = [g for g in self.land if h != g and inCircle(h.centre,g.centre, self.sp*2+.02)]
 
     def populateMap(self, players):
         for h in self.hexes.values():
@@ -267,10 +266,10 @@ class Grid:
             for h in start.neighbours:
                 if h ==target and target.owner == start.owner and not (start.village and start.village.hex ==h) and not target.occupant and not target.hasTree and not target.hasTombstone:
                     return [start,target]
-                elif h ==target and target.owner != start.owner and h.village.wood>=2 and (h.occupant or (h.village and h.village.hex == h)):
+                elif h ==target and target.owner != start.owner and start.occupant.village.wood>=2 and (h.occupant or (h.village and h.village.hex == h)):
                     return [None, target]
                 for g in h.neighbours:
-                    if g == target and target.owner != start.owner and h.village.wood>=2 and (g.occupant or (g.village and g.village.hex == g)):
+                    if g == target and target.owner != start.owner and start.occupant.village.wood>=2 and (g.occupant or (g.village and g.village.hex == g)):
                         return [None, target]
             return []
         path, unchecked, checked, start.parent = [],[],[],None
@@ -316,7 +315,6 @@ class Engine:
         random.seed(self.seednumber)
         self.grid = Grid(1, self.width, self.height, self)
         self.grid.populateMap(self.players)
-        
         self.Gui = Gui(self, self.width, self.height, name, player, client, savedGame)
 
         self.run()
@@ -442,7 +440,6 @@ class Engine:
             return False
         path = self.grid.Astar(unit.hex, h)
         if not path:
-            print("no path")
             return False
         temp = False
         if unit.type==4:
@@ -591,4 +588,4 @@ class ClientStub:
         self.outGameQueue = queue.Queue()
 
 if __name__ == "__main__":
-    engine = Engine(0, "aaron", 1, 89, ClientStub(), 1, None)
+    engine = Engine(0, "aaron", 1, 89, ClientStub(), 4, None)

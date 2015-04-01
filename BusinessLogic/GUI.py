@@ -165,14 +165,14 @@ class Element:
     def changeColour(self,c):
         self.texoffVerts = np.array(c*4 , dtype=np.float32)
         glBindBuffer(GL_ARRAY_BUFFER, self.texoffbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texoffVerts ), None, GL_DYNAMIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texoffVerts ), None, GL_STREAM_DRAW)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(self.texoffVerts ), ADT.voidDataPointer(self.texoffVerts ), GL_STREAM_DRAW)
 
     def update(self):
         g_tex_buffer_data = np.array([[-self.w+self.centre[0],-self.h+self.centre[1]],[self.w+self.centre[0],-self.h+self.centre[1]],[self.w+self.centre[0],self.h+self.centre[1]],[-self.w+self.centre[0],self.h+self.centre[1]]] , dtype=np.float32)
         glBindBuffer(GL_ARRAY_BUFFER, self.vertexbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_tex_buffer_data), None, GL_STATIC_DRAW)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_tex_buffer_data), ADT.voidDataPointer(g_tex_buffer_data), GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_tex_buffer_data), None, GL_DYNAMIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_tex_buffer_data), ADT.voidDataPointer(g_tex_buffer_data), GL_DYNAMIC_DRAW)
 
     def draw(self):
         glEnableVertexAttribArray(0)
@@ -417,7 +417,7 @@ class UI:
         self.menuButtons.append(Button(0,0,.2,.03, lambda: self.gui.load(),lambda: True , "load game"))
         self.menuButtons.append(Button(0,-.2,.2,.03, lambda: pygame.quit() or setattr(self.gui, 'running', False),lambda: True , "exit game"))
 
-        self.endButton = Button(1.5,self.height,.2,.03, lambda: self.gui.endTurn(), lambda: True, "end turn", 0.015)
+        self.endButton = Button(aspect-.27,self.height,.2,.03, lambda: self.gui.endTurn(), lambda: True, "end turn", 0.015)
 
     def mouseOver(self,p):
         t = self.shift
@@ -537,6 +537,7 @@ class UI:
         self.visible = 0
 
 class Gui:
+    playerColours = {1 : [0.6118, .0118, 0.2824, 0], 2 : [1, .3, 0, 0], 3 : [0, 0.0196, 0.302,0], 4 : [1,1, 1,0]}
     def __init__(self, engine, width, height, name, player, client, savedGame):
         sys.setrecursionlimit(10000)
         self.height = height
@@ -552,7 +553,7 @@ class Gui:
         self.shader = self.shaders()
         self.selected = None
         self.combiner = None
-        self.spriteSheetCuts = (4,5)
+        self.spriteSheetCuts = (5,5)
         self.altDown = False
         self.shiftDown = False
 
@@ -564,6 +565,10 @@ class Gui:
         glUniform1f(self.zoomloc,1)
         self.running = True
         self.client = client
+
+        if savedGame:
+            self.engine = pickle.loads(savedGame)
+            self.engine.Gui = self
 
         self.mapTex = self.bindTexture("texture.png")
         self.path = Path(self.engine.grid.d)
@@ -585,11 +590,6 @@ class Gui:
 
         #objects
         self.initObjectBuffers()
-
-        if savedGame:
-            print("loaded")
-            self.engine = pickle.loads(savedGame)
-            self.engine.Gui = self
 
     def init(self):
         os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (50,50)
@@ -641,7 +641,14 @@ class Gui:
 
         void main()
         {
-            if(theColor.a==1){
+            if(abs(colorOffset.a-.3)<0.001){
+                float gray = dot(texture(myTextureSampler, UV).rgb, vec3(0.299, 0.587, 0.114));
+                outputColor = vec4(texture(myTextureSampler, UV).rgb*vec3(.5,.5,.5), texture(myTextureSampler, UV).a);
+            }
+            else if(theColor.a==1 && colorOffset.r!=0){
+                outputColor = vec4(colorOffset.rgb*texture(myTextureSampler, UV).rgb,texture(myTextureSampler, UV).a);
+            }
+            else if(theColor.a==1){
                 outputColor = theColor*texture(myTextureSampler, UV).rgba;
             }
             else{
@@ -766,7 +773,7 @@ class Gui:
         colour_data = np.array([1,1,1,1]*4, dtype=np.float32)
         size = 0.05
         vertex_data = np.array([[-size,-size],[size,-size],[size,size],[-size,size]], dtype=np.float32)
-        texture_data = np.array([[.8*(1/self.spriteSheetCuts[0])*(h[0]+.1),.8*(1/self.spriteSheetCuts[1])*(h[1]+.1)] for h in [[0,0],[1,0],[1,1],[0,1]]], dtype=np.float32)
+        texture_data = np.array([[(1/self.spriteSheetCuts[0])*(h[0]),(1/self.spriteSheetCuts[1])*(h[1])] for h in [[0,0],[1,0],[1,1],[0,1]]], dtype=np.float32)
         color_off_data = np.array([[0,0,0,0]*4], dtype=np.float32)
 
         glBindBuffer(GL_ARRAY_BUFFER, self.unitvertexbuffer)
@@ -826,11 +833,8 @@ class Gui:
         #self.gridUVoffsets[n] = [1/self.spriteSheetCuts[0],0] if self.selected.hasTree else ([0,1/self.spriteSheetCuts[1]] if self.selected.water else ([2/self.spriteSheetCuts[0],0] if self.selected.hasMeadow else[0,0]))
         self.gridUVoffsets = [ self.getHexUV(h) for h in self.engine.grid.hexes.values()]
         self.overlaycolors = [[1,0,0,0] if self.selected == h or self.combiner ==h
-                              else ([0.6118, .0118, 0.2824, 0] if h.owner==1 
-                                   else ([1, .3, 0, 0] if h.owner ==2 
-                                         else ([0, 0.0196, 0.302,0] if h.owner == 3 
-                                               else ([.8098,0.3784, 0.0196,0] if h.owner == 4 
-                                                     else [0,0,0,-.6]))))  for h in self.engine.grid.land]
+                              else (self.playerColours[h.owner] if 0<h.owner<5
+                                                     else [0,0,0,-.6])  for h in self.engine.grid.land]
 
         g_UVoffset_buffer_data = np.array(self.gridUVoffsets, dtype=np.float32)
         g_overlayCOffset_buffer_data = np.array(self.overlaycolors, dtype=np.float32)
@@ -840,7 +844,7 @@ class Gui:
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_UVoffset_buffer_data), ADT.voidDataPointer(g_UVoffset_buffer_data), GL_STREAM_DRAW)
             
         glBindBuffer(GL_ARRAY_BUFFER, self.overlaycffsetbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), None, GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), None, GL_STREAM_DRAW)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(g_overlayCOffset_buffer_data), ADT.voidDataPointer(g_overlayCOffset_buffer_data), GL_STREAM_DRAW)
 
     def convex_hull(self,points): #possibility for territories
@@ -888,12 +892,19 @@ class Gui:
                                [[unit.type/self.spriteSheetCuts[0],4/self.spriteSheetCuts[1]] for player in self.engine.players.values() for village in player.villages for unit in  village.units]
                                , dtype=np.float32)
 
+        color_off_data = np.array([[0,0,0,0] for player in self.engine.players.values() for village in player.villages]+
+                                  [self.playerColours[player.n][:3]+[.3 if unit.moved and player.n== self.player else 0] for player in self.engine.players.values() for village in player.villages for unit in  village.units], dtype=np.float32)
+
+        glBindBuffer(GL_ARRAY_BUFFER, self.unitcoloroffbuffer)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(color_off_data), None, GL_STREAM_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(color_off_data), ADT.voidDataPointer(color_off_data), GL_STREAM_DRAW)
+
         glBindBuffer(GL_ARRAY_BUFFER, self.unitUVoffsetbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(texOff_data), None, GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(texOff_data), None, GL_STREAM_DRAW)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(texOff_data), ADT.voidDataPointer(texOff_data), GL_STREAM_DRAW)
 
         glBindBuffer(GL_ARRAY_BUFFER, self.unitoffsetbuffer)
-        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(offset_data), None, GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(offset_data), None, GL_STREAM_DRAW)
         glBufferData(GL_ARRAY_BUFFER, ADT.arrayByteCount(offset_data), ADT.voidDataPointer(offset_data), GL_STREAM_DRAW)
 
     def drawMap(self):
@@ -947,9 +958,7 @@ class Gui:
         glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, 0, None)
         glBindBuffer(GL_ARRAY_BUFFER, self.unitcoloroffbuffer)
         glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 0, None)
-
-        glVertexAttribDivisor(5, 0)
-
+        
         glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, self.nObjects)
 
         glVertexAttribDivisor(0, 0)
@@ -1030,10 +1039,11 @@ class Gui:
             clickEvent = False
             if sum((1 if p.villages else 0 for p in self.engine.players.values())) == 1 and not won:
                 won = True
-                #self.client.inQueue.put(WinGame())
-            if not self.client.outGameQueue.empty():
+                self.client.inQueue.put(WinGame())
+                self.running = False
+                break
+            if not self.client.outGameQueue.empty() :
                 temp = self.client.outGameQueue.get()
-                print(temp)
                 clickEvent = True
                 if type(temp) == ChatMessage:
                     self.ui.chat.update(temp.message, self.showChat)
@@ -1046,10 +1056,8 @@ class Gui:
                         except:
                             print("clients out of sink")
                 elif type(temp) == GameEnd:
-                    print("end")
                     self.running = False
-                    
-                    
+                    break
             for event in pygame.event.get():
                 if event.type == QUIT:
                     pygame.quit()
