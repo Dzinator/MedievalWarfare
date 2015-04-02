@@ -65,7 +65,8 @@ class Text:
         self.text =text
         self.length = int(len(centres)/2)
 
-        texVerts = np.array([[0,.065],[.045,.065],[.045,.125],[0,.125]], dtype=np.float32)
+        #[[0,.065],[.045,.065],[.045,.125],[0,.125]]
+        texVerts = np.array([[0,.065],[.065,.065],[.065,.125],[0,.125]], dtype=np.float32)
         off_data = np.array(centres, dtype=np.float32)
         g_tex_buffer_data = np.array([[-size,-size],[size,-size],[size,size],[-size,size]]*len(centres)  , dtype=np.float32)
         texoffVerts = np.array(verts , dtype=np.float32)
@@ -233,7 +234,7 @@ class Overlay(Element):
         self.size = size
         w= len(text)*size+.01
         super().__init__(x,y,w,h,c)
-        self.text = Text(x-w+size+0.01,y+h-size-0.01,size,text, [1,1,1,1])
+        self.text = Text(x-w+size+0.01,y+h-size-0.01,size,text)
 
     def update(self, text):
         self.w = len(text)*self.size+.01
@@ -573,7 +574,7 @@ class Gui:
         self.mapTex = self.bindTexture("texture.png")
         self.path = Path(self.engine.grid.d)
 
-        Text.image = self.bindTexture("ExportedFont_Alpha.png")
+        Text.image = self.bindTexture("Untitled-1.png")
 
         self.villageOverlays = {v : Overlay(v.hex.centre[0], v.hex.centre[1]+.05, 0.2, 0.025, "w:"+str(v.wood)+"  g:"+str(v.gold), 0.015, [0.8,0.8,0.8,0.5]) for v in self.engine.players[self.player].villages}
 
@@ -1041,6 +1042,7 @@ class Gui:
                 won = True
                 self.client.inQueue.put(WinGame())
                 self.running = False
+                pygame.quit()
                 break
             if not self.client.outGameQueue.empty() :
                 temp = self.client.outGameQueue.get()
