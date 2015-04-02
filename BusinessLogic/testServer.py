@@ -126,14 +126,14 @@ class testServer(unittest.TestCase):
         to server, server should not crash"""
         Juliet = socket.socket()
         Juliet.connect(SERVER_ADDR)
-        loginM = ClientLogin("Juliet")
+        loginM = ClientLogin("test1", 123)
         send_to_server(Juliet, loginM)
         Juliet.close()
         # reconnect and re-login
         time.sleep(0.5)
         Juliet = socket.socket()
         Juliet.connect(SERVER_ADDR)
-        reconnectM = ReconnectRequest("Juliet")
+        reconnectM = ReconnectRequest("test1")
         send_to_server(Juliet, reconnectM)
         time.sleep(0.5)
         Juliet.close()

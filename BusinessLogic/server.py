@@ -75,19 +75,19 @@ def in_game(f):
 
 
 class Room():
-    def __init__(self, host):
+    def __init__(self, host, room_name):
         """
         :type host: ClientSocket
         """
         self._players = set()
         self.host = host
-        self.add_player(host)
         self.game_id = ""
         self.saved_game = None
-        self.ID = id(self)
+        self.ID = room_name
         self._room_lock = threading.RLock()
         self.is_closed = False
         self.game_started = False
+        self.add_player(host)
 
     def get_all_players(self):
         with self._room_lock:
@@ -169,7 +169,7 @@ class ClientSocket(threading.Thread):
     @property
     def _socket_address(self):
         """get the socket address of this client"""
-        if self.socket:
+        if self.socket and not self.connection_broken:
             return self.socket.getpeername()
 
     @property
@@ -359,8 +359,7 @@ class ClientSocket(threading.Thread):
             elif self.is_taken_over:
                 pass
             else:
-                logger.info("client disconnected: {}".format(
-                    self._socket_address))
+                logger.info("client disconnected")
                 self.update_player_stats(status="Offline")
 
             # graceful clean up procedure
@@ -411,6 +410,7 @@ class ClientSocket(threading.Thread):
         self.server.drop_client(self.socket)
         # old client is ready to go
         old_cs.connection_broken = False
+        self.connection_broken = True
         # do the clean up for the old socket
         self.close()
 
@@ -544,6 +544,7 @@ class ClientSocket(threading.Thread):
         """
         game_id, saved_game = game_dat.game_id, game_dat.saved_game
         self.room.change_map(game_id=game_id, saved_game=saved_game)
+        self.broadcast_msg(self._sendroom_msg, exclude_self=True)
         logger.info("host changed map, map will be send at game start")
 
     @in_game
@@ -715,13 +716,15 @@ class Server():
 
     def __init__(self, max_connections_allowed=10):
         self._server_addr = SERVER_ADDR or ("localhost", 8000)
-        self._data_file = "datafile.dat"
+        self._data_file = "./res/datafile.dat"
+        self._room_name_file = "./res/room_name_list.dat"
         # all the clients: {socket: ClientSocket}
         self._clients = {}
         self._clients_lock = threading.RLock()
-        # all the rooms: {int: Room}
+        # all the rooms: {str: Room}
         self._rooms = {}
         self._rooms_lock = threading.RLock()
+        self._room_names = self.get_room_names()
         # all the player stats: {str: dict}
         self._player_stats = {}
         self._player_stats_lock = threading.RLock()
@@ -741,10 +744,16 @@ class Server():
             logger.info("server started at {}".format(self._server_addr))
 
     # region self.room
+    def get_room_names(self):
+        """
+        :rtype : list
+        """
+        with open(self._room_name_file, "rt") as f:
+            s = f.read()
+            ret = [i for i in s.split("\n") if i]
+        return ret
+
     def get_room(self, room_id):
-        """
-        :type room_id: int
-        """
         with self._rooms_lock:
             return self._rooms.get(room_id)
 
@@ -755,14 +764,15 @@ class Server():
         :rtype : Room
         """
         with self._rooms_lock:
-            new_room = Room(host)
+            rand_name = self._room_names[randint(0, len(self._room_names))]
+            ":type: str"
+            while self.get_room(rand_name):
+                rand_name += "+"
+            new_room = Room(host, rand_name)
             self._rooms[new_room.ID] = new_room
             return new_room
 
     def remove_room(self, room_id):
-        """
-        :type room_id: int
-        """
         with self._rooms_lock:
             return self._rooms.pop(room_id)
 
@@ -775,7 +785,7 @@ class Server():
     def get_room_ids_in_lobby(self):
         """return a list of rooms not in game"""
         with self._rooms_lock:
-            ret = [k for k, v in self._rooms if not v.game_started]
+            ret = [k for k, v in self._rooms.items() if not v.game_started]
             assert (ret <= list(self._rooms.keys()))  # lobby room is a subset
             return ret
 
