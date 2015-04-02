@@ -30,6 +30,7 @@ class Village:
         self.gold =0
         self.wood = 0
         self.type = 0
+        self.hex.removeTree()
         self.hitpoints = self.hitpoints.get(self.type, 0)
             
     def killUnits(self):
@@ -308,8 +309,8 @@ class Engine:
         self.turn = 1
         self.rounds = 0
         self.roundsPlayed = 0
-        self.width = 800
-        self.height = 600
+        self.width = 1600
+        self.height = 900
         self.initPlayers(nplayers)
         self.seednumber = seed
         random.seed(self.seednumber)
@@ -460,7 +461,8 @@ class Engine:
                     path[1].village.hitPoints-=1
                     unit.village.wood-=2
                     unit.moved = True
-                    if path[1].village.hitPoints==0: 
+                    if path[1].village.hitPoints==0:
+                        h.village.owner.addVillage(Village(random.choice(h.village.territory), h.village.owner, h.village.territory))
                         h.village.hex = random.choice(h.village.territory)
                         h.village.reset()
         else:
