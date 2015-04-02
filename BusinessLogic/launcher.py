@@ -60,11 +60,15 @@ class ThreadDispatcher(QThread):
         self.client.s.close()
 
     def loadMap(self, mapName):
+
         if self.host == self.name:
             temp = None
             if mapName != "Random":
-                with open("./saves/"+mapName, 'rb') as f:
-                    temp = f.read()
+                try:
+                    with open("./saves/"+mapName, 'rb') as f:
+                        temp = f.read()
+                except:
+                    pass
             self.client.inQueue.put(ChangeMap(mapName, temp))
 
 
