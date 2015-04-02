@@ -276,11 +276,7 @@ class Main(QWidget):
         buttons.setSpacing(0)
         buttons.setContentsMargins(0,0,0,0)
         self.name = QLabel("Lobby 1")
-<<<<<<< HEAD
         self.name.setStyleSheet("font-size: 20px; font-family : 'Prince Valiant'; color: #ffffff;")
-=======
-        self.name.setStyleSheet("font-size: 20px; ")
->>>>>>> parent of e66391e... Other launcher style changes
         self.name.setFixedSize(100,30)
         buttons.addWidget(self.name)
         
@@ -294,11 +290,7 @@ class Main(QWidget):
         buttons.addWidget(mapName)
         
         self.maps = QComboBox(self)
-<<<<<<< HEAD
         self.maps.setStyleSheet("background-color:#ffffff; font-family : 'Becker'; color: #000000; border: 0px outset #aaaaaa;font-size: 13px; ")
-=======
-        self.maps.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;font-size: 10px; ")
->>>>>>> parent of e66391e... Other launcher style changes
         self.maps.currentIndexChanged[str].connect(lambda: self.dispatcher.loadMap(self.maps.currentText()))
         
         
