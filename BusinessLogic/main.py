@@ -309,8 +309,8 @@ class Engine:
         self.turn = 1
         self.rounds = 0
         self.roundsPlayed = 0
-        self.width = 800
-        self.height = 600
+        self.width = 1600
+        self.height = 900
         self.initPlayers(nplayers)
         self.seednumber = seed
         random.seed(self.seednumber)
