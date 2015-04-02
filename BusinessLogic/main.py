@@ -462,7 +462,6 @@ class Engine:
                     unit.village.wood-=2
                     unit.moved = True
                     if path[1].village.hitPoints==0:
-                        h.village.owner.addVillage(Village(random.choice(h.village.territory), h.village.owner, h.village.territory))
                         h.village.hex = random.choice(h.village.territory)
                         h.village.reset()
         else:
