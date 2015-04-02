@@ -23,7 +23,7 @@ class ThreadDispatcher(QThread):
                 if type(msg) == sendRoom:
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.clear()))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.transition(2)))
-                    st =[ p.get('username', 'unknown') +"         status: "+("ready" if p.get('ready', False) else "not ready") for p in msg.playerlist]
+                    st =[ p.get('username', 'unknown') +"         status: "+("ready" if p.get('ready', False) else "not ready")+"           Wins: "+str(p.get('wins'))+"           Games: "+str(p.get('games')) for p in msg.playerlist]
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.addItems(st)))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.name.setText(str(msg.roomId)) ))
                     self.host = msg.host
