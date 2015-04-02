@@ -186,13 +186,14 @@ class Main(QWidget):
         fields.addWidget(title)
         
         username = QLineEdit(self)
-        username.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #009933; border: 0px outset #aaaaaa;")
+        username.setStyleSheet("background-color:#ffffff; font-family : 'Arial'; color: #000000; border: 0px outset #aaaaaa;")
         username.setText("Username")
         fields.addWidget(username)        
 
         pw = QLineEdit(self)
-        pw.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #009933; border: 0px outset #aaaaaa;")
+        pw.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #000000; border: 0px outset #aaaaaa;")
         pw.setText("Password")
+        pw.setEchoMode(QLineEdit.Password)
         fields.addWidget(pw)
 
         spacer1 = QWidget(self)
