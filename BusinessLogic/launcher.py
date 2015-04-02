@@ -1,4 +1,4 @@
-import subprocess, time, os
+import subprocess, time
 from PySide.QtGui import *
 from PySide import QtCore
 from PySide.QtCore import *
@@ -9,11 +9,10 @@ from message import *
 class ThreadDispatcher(QThread):
     def __init__(self, parent):
         QThread.__init__(self)
-        self.client = Client('142.157.148.39', 8000, "aaron", self)
+        self.client = Client('142.157.148.16', 8000, "Julie", self)
         self.parent = parent
         self.name = ""
         self.running = True
-        self.host = ""
 
     def run(self):
         while self.running:
@@ -26,26 +25,15 @@ class ThreadDispatcher(QThread):
                     st =[ p.get('username', 'unknown') +"         status: "+("ready" if p.get('ready', False) else "not ready") for p in msg.playerlist]
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listPlayers.addItems(st)))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.name.setText(str(msg.roomId)) ))
-                    self.host = msg.host
-                    if self.name == msg.host and self.parent.maps.count()==0:
-                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.clear()))
-                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.addItem("Random")))
-                        temp = [filename for dirname, dirnames, filenames in os.walk('./saves') for filename in filenames]
-                        QApplication.postEvent(self.parent, _Event(lambda: self.parent.maps.addItems(temp)))
-                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.setCurrentIndex(0)))
-                    elif self.name != msg.host:
-                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.clear()))
-                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.addItem("Random" if not msg.current_game else msg.current_game)))
-                        QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.setCurrentIndex(0)))
                 elif type(msg) == startGame:
-                    QApplication.postEvent(self.parent, _Event(lambda:Engine(1, self.name, msg.player_turn, msg.seed,self.client, len(msg.player_list), msg.saved_game)))
-                    
+                    QApplication.postEvent(self.parent, _Event(lambda:Engine(1, self.name, msg.player_turn, msg.seed,self.client, len(msg.player_list))))
                 elif type(msg) ==LoginAck:
                     if msg.success:
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.transition(1)))
                     else:
                         print("Could not login")
                 elif type(msg) == SendRoomList:
+                    print("ids: "+str(msg.room_list))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listLobby.clear()))
                     QApplication.postEvent(self.parent, _Event(lambda:self.parent.listLobby.addItems([str(id) for id in msg.room_list])))
                 elif msg is None:
@@ -59,15 +47,6 @@ class ThreadDispatcher(QThread):
         self.running = False
         self.client.s.close()
 
-    def loadMap(self, mapName):
-        if self.host == self.name:
-            temp = None
-            if mapName != "Random":
-                with open("./saves/"+mapName, 'rb') as f:
-                    temp = f.read()
-            self.client.inQueue.put(ChangeMap(mapName, temp))
-
-
 class _Event(QEvent):
     EVENT_TYPE = QEvent.Type(QEvent.registerEventType())
 
@@ -79,22 +58,22 @@ class _Event(QEvent):
 class HoverButton(QPushButton):
     def __init__(self, text, parent):
         super().__init__(text,parent)
-        self.setStyleSheet("background-color:#333333; font-family : 'Becker'; color: #009933; border-style: outset; border-width: 0px;")
+        self.setStyleSheet("background-color:#333333; color: #ffffff; border-style: outset; border-width: 0px;")
         
     def enterEvent(self,event):
-        self.setStyleSheet("background-color:#555555; font-family : 'Becker'; color: #996633; border-style: outset; border-width: 0px;")
+        self.setStyleSheet("background-color:#555555; color: #ffffff; border-style: outset; border-width: 0px;")
 
     def leaveEvent(self,event):
-        self.setStyleSheet("background-color:#333333; font-family : 'Becker'; color: #009933; border-style: outset; border-width: 0px;")
+        self.setStyleSheet("background-color:#333333; color: #ffffff; border-style: outset; border-width: 0px;")
 
 class MoveBar(QPushButton):
-    def __init__(self,parent,text='Medieval Warfare'):
+    def __init__(self,parent,text=''):
         super().__init__(text,parent)
         self.posWin = ()
         self.parent = parent
         self.moveWin = False
         
-        self.setStyleSheet("background-color:#009933; color: #000000; font-size : 13px; font-family : 'Livingstone'; border-style: outset; border-width: 0px;")
+        self.setStyleSheet("background-color:#333333; color: #aaaaaa; border-style: outset; border-width: 0px;")
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
@@ -178,20 +157,15 @@ class Main(QWidget):
         spacer = QWidget(self)
         spacer.setFixedSize(100,100)
         fields.addWidget(spacer)
-
-        title = QLabel(self)
-        title.setText("Medieval Warfare")
-        title.setStyleSheet("font-size : 45px; font-family : 'Prince Valiant'; color : #009933;")
-        fields.addWidget(title)
         
         username = QLineEdit(self)
-        username.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #009933; border: 0px outset #aaaaaa;")
-        username.setText("Username")
+        username.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;")
+        username.setText("username")
         fields.addWidget(username)        
 
         pw = QLineEdit(self)
-        pw.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #009933; border: 0px outset #aaaaaa;")
-        pw.setText("Password")
+        pw.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;")
+        pw.setText("password")
         fields.addWidget(pw)
 
         spacer1 = QWidget(self)
@@ -203,28 +177,14 @@ class Main(QWidget):
         buttons = QVBoxLayout()
         refresh = HoverButton('Login', self)
         refresh.setFixedSize(100,60)
-        refresh.clicked.connect(lambda: self.dispatcher.client.inQueue.put(ClientLogin(username.text(), pw.text())) or setattr(self.dispatcher, 'name', username.text()) )
+        refresh.clicked.connect(lambda: self.dispatcher.client.inQueue.put(ClientLogin(username.text())) or setattr(self.dispatcher, 'name', username.text()) )
         buttons.addWidget(refresh)
-        sign = HoverButton('Sign up', self)
-        sign.setFixedSize(100,60)
-        sign.clicked.connect(lambda: self.dispatcher.client.inQueue.put(Signup(username.text(), pw.text())) or setattr(self.dispatcher, 'name', username.text()) )
-        buttons.addWidget(sign)
 
         spacer2 = QWidget(self)
         spacer2.setFixedSize(100,10)
         buttons.addWidget(spacer2)
 
-        copyright = QLabel(self)
-        copyright.setText("Copyright by Medusa's Coders")
-        copyright.setStyleSheet("font-family : Calibri; font-size : 8px; color : #996633")
-
         layout2.addLayout(buttons)
-        knightPic = QPixmap("LauncherKnight.png")
-        label = QLabel(self)
-        label.setPixmap(knightPic)
-
-        layout2.addWidget(label)
-        fields.addWidget(copyright)	
         self.windows['0'] = self.screen0
         return self.screen0
         
@@ -243,7 +203,7 @@ class Main(QWidget):
         join = HoverButton('Join Room', self)
         join.setFixedSize(100,60)
         #self.transition(2) or self.name.setText(self.listLobby.currentItem().text() if self.listLobby.currentItem() else "")
-        join.clicked.connect(lambda: self.dispatcher.client.inQueue.put(JoinRoom(self.listLobby.currentItem().text())) if self.listLobby.currentItem() else False) #subprocess.Popen("python main.py", shell = True)
+        join.clicked.connect(lambda: self.dispatcher.client.inQueue.put(JoinRoom(int(self.listLobby.currentItem().text()))) if self.listLobby.currentItem() else False) #subprocess.Popen("python main.py", shell = True)
         buttons.addWidget(join)
 
         create = HoverButton('Create Room', self)
@@ -288,11 +248,15 @@ class Main(QWidget):
         mapName.setFixedSize(100,30)
         buttons.addWidget(mapName)
         
-        self.maps = QComboBox(self)
-        self.maps.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;font-size: 10px; ")
-        self.maps.currentIndexChanged[str].connect(lambda: self.dispatcher.loadMap(self.maps.currentText()))
+        combo = QComboBox(self)
+        combo.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;font-size: 10px; ")
+        combo.addItem("Map 1")
+        combo.addItem("Map 2")
+        combo.addItem("Map 3")
+        combo.addItem("Map 4")
+        combo.addItem("Map 5")
 
-        buttons.addWidget(self.maps)
+        buttons.addWidget(combo)
         join = HoverButton('Ready', self)
         join.setFixedSize(100,60)
         join.clicked.connect(lambda: self.dispatcher.client.inQueue.put(ReadyForGame())) #subprocess.Popen("python main.py", shell = True)
@@ -301,7 +265,7 @@ class Main(QWidget):
 
         refresh = HoverButton('Back', self)
         refresh.setFixedSize(100,60)
-        refresh.clicked.connect(lambda: self.transition(1) or self.dispatcher.client.inQueue.put(LeaveRoom()) or self.maps.clear())
+        refresh.clicked.connect(lambda: self.transition(1) or self.dispatcher.client.inQueue.put(LeaveRoom()))
         buttons.addWidget(refresh)
 
         spacer1 = QWidget(self)
