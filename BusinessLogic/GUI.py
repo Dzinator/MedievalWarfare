@@ -593,7 +593,7 @@ class Gui:
 
     def init(self):
         os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (50,50)
-        pygame.display.set_caption('Medival Warfare','Medival Warfare')
+        pygame.display.set_caption('Medieval Warfare','Medieval Warfare')
         pygame.display.set_mode((self.width, self.height), OPENGL|DOUBLEBUF)# |FULLSCREEN|HWSURFACE)
         glClearColor(0,0,0,0)
         glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST)
