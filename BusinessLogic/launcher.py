@@ -30,9 +30,8 @@ class ThreadDispatcher(QThread):
                     if self.name == msg.host and self.parent.maps.count()==0:
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.clear()))
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.addItem("Random")))
-                        for dirname, dirnames, filenames in os.walk('./saves') :
-                            for filename in filenames:
-                                QApplication.postEvent(self.parent, _Event(lambda: self.parent.maps.addItem(filename)))
+                        temp = [filename for dirname, dirnames, filenames in os.walk('./saves') for filename in filenames]
+                        QApplication.postEvent(self.parent, _Event(lambda: self.parent.maps.addItems(temp)))
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.setCurrentIndex(0)))
                     elif self.name != msg.host:
                         QApplication.postEvent(self.parent, _Event(lambda:self.parent.maps.clear()))
@@ -186,14 +185,13 @@ class Main(QWidget):
         fields.addWidget(title)
         
         username = QLineEdit(self)
-        username.setStyleSheet("background-color:#ffffff; font-family : 'Arial'; color: #000000; border: 0px outset #aaaaaa;")
+        username.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #009933; border: 0px outset #aaaaaa;")
         username.setText("Username")
         fields.addWidget(username)        
 
         pw = QLineEdit(self)
-        pw.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #000000; border: 0px outset #aaaaaa;")
+        pw.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #009933; border: 0px outset #aaaaaa;")
         pw.setText("Password")
-        pw.setEchoMode(QLineEdit.Password)
         fields.addWidget(pw)
 
         spacer1 = QWidget(self)
@@ -245,7 +243,7 @@ class Main(QWidget):
         join = HoverButton('Join Room', self)
         join.setFixedSize(100,60)
         #self.transition(2) or self.name.setText(self.listLobby.currentItem().text() if self.listLobby.currentItem() else "")
-        join.clicked.connect(lambda: self.dispatcher.client.inQueue.put(JoinRoom(int(self.listLobby.currentItem().text()))) if self.listLobby.currentItem() else False) #subprocess.Popen("python main.py", shell = True)
+        join.clicked.connect(lambda: self.dispatcher.client.inQueue.put(JoinRoom(self.listLobby.currentItem().text())) if self.listLobby.currentItem() else False) #subprocess.Popen("python main.py", shell = True)
         buttons.addWidget(join)
 
         create = HoverButton('Create Room', self)
@@ -277,7 +275,7 @@ class Main(QWidget):
         buttons.setSpacing(0)
         buttons.setContentsMargins(0,0,0,0)
         self.name = QLabel("Lobby 1")
-        self.name.setStyleSheet("font-size: 20px; font-family : 'Prince Valiant'; color: #ffffff;")
+        self.name.setStyleSheet("font-size: 20px; ")
         self.name.setFixedSize(100,30)
         buttons.addWidget(self.name)
         
@@ -291,10 +289,8 @@ class Main(QWidget):
         buttons.addWidget(mapName)
         
         self.maps = QComboBox(self)
-        self.maps.setStyleSheet("background-color:#ffffff; font-family : 'Becker'; color: #000000; border: 0px outset #aaaaaa;font-size: 13px; ")
+        self.maps.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;font-size: 10px; ")
         self.maps.currentIndexChanged[str].connect(lambda: self.dispatcher.loadMap(self.maps.currentText()))
-        
-        
 
         buttons.addWidget(self.maps)
         join = HoverButton('Ready', self)
@@ -305,7 +301,7 @@ class Main(QWidget):
 
         refresh = HoverButton('Back', self)
         refresh.setFixedSize(100,60)
-        refresh.clicked.connect(lambda: self.transition(1) or self.dispatcher.client.inQueue.put(LeaveRoom()))
+        refresh.clicked.connect(lambda: self.transition(1) or self.dispatcher.client.inQueue.put(LeaveRoom()) or self.maps.clear())
         buttons.addWidget(refresh)
 
         spacer1 = QWidget(self)
