@@ -15,7 +15,7 @@ class Village:
     hitpoints = {0:1, 1:2, 2:5, 3:10}
     def __init__(self, h, p, t):
         self.type = 0
-        self.gold = 100 #temp
+        self.gold = 1000 #temp
         self.wood = 100 #temp
         self.hex = h
         self.hex.removeTree()
@@ -430,8 +430,8 @@ class Engine:
             if h.village.hex != h:
                 h.village.hex.putTree()
             if h.village.hex == h:
-                unit.village.gold += h.village.gold
-                unit.village.wood += h.village.wood
+                unit.hex.village.gold += h.village.gold
+                unit.hex.village.wood += h.village.wood
                 h.putMeadow()
             del h.village
 
@@ -525,9 +525,9 @@ class Engine:
             if h.hasTree:
                 temp = [g for g in h.neighbours if not g.hasTree and not g.hasRoad and not g.hasWatchTower and not g.hasTombstone and not (g.village and g.village.hex == g) and not g.occupant]
                 if temp:
-                    h = random.choice(temp)
-                    if random.random()>.5:
-                        toPlant.append(h)
+                    g= random.choice(h.neighbours)
+                    if random.random()>.5 and not g.hasTree and not g.hasRoad and not g.hasWatchTower and not g.hasTombstone and not (g.village and g.village.hex == g) and not g.occupant:
+                        toPlant.append(g)
         for h in toPlant:
             h.putTree()
 
@@ -588,4 +588,4 @@ class ClientStub:
         self.outGameQueue = queue.Queue()
 
 if __name__ == "__main__":
-    engine = Engine(0, "aaron", 1, 89, ClientStub(), 4, None)
+    engine = Engine(0, "aaron", 1, 89, ClientStub(), 2, None)
