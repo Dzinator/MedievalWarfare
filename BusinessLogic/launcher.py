@@ -9,7 +9,7 @@ from message import *
 class ThreadDispatcher(QThread):
     def __init__(self, parent):
         QThread.__init__(self)
-        self.client = Client('192.168.3.105', 8000, "Julie", self)
+        self.client = Client('142.157.148.39', 8000, "aaron", self)
         self.parent = parent
         self.name = ""
         self.running = True
@@ -94,7 +94,6 @@ class MoveBar(QPushButton):
         self.posWin = ()
         self.parent = parent
         self.moveWin = False
-
         
         self.setStyleSheet("background-color:#009933; color: #000000; font-size : 13px; font-family : 'Livingstone'; border-style: outset; border-width: 0px;")
 
@@ -180,19 +179,19 @@ class Main(QWidget):
         spacer = QWidget(self)
         spacer.setFixedSize(100,100)
         fields.addWidget(spacer)
-		
+
         title = QLabel(self)
         title.setText("Medieval Warfare")
         title.setStyleSheet("font-size : 45px; font-family : 'Prince Valiant'; color : #009933;")
         fields.addWidget(title)
-		
+        
         username = QLineEdit(self)
         username.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #009933; border: 0px outset #aaaaaa;")
         username.setText("Username")
         fields.addWidget(username)        
 
         pw = QLineEdit(self)
-        pw.setStyleSheet("background-color:#ffffff; font-family : 'Livingstone'; color: #009933; border: 0px outset #aaaaaa;")
+        pw.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #009933; border: 0px outset #aaaaaa;")
         pw.setText("Password")
         fields.addWidget(pw)
 
@@ -215,19 +214,18 @@ class Main(QWidget):
         spacer2 = QWidget(self)
         spacer2.setFixedSize(100,10)
         buttons.addWidget(spacer2)
-		
+
         copyright = QLabel(self)
         copyright.setText("Copyright by Medusa's Coders")
         copyright.setStyleSheet("font-family : Calibri; font-size : 8px; color : #996633")
 
         layout2.addLayout(buttons)
-		
         knightPic = QPixmap("LauncherKnight.png")
         label = QLabel(self)
         label.setPixmap(knightPic)
 
         layout2.addWidget(label)
-        fields.addWidget(copyright)		
+        fields.addWidget(copyright)	
         self.windows['0'] = self.screen0
         return self.screen0
         
