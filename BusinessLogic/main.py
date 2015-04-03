@@ -309,8 +309,8 @@ class Engine:
         self.turn = 1
         self.rounds = 0
         self.roundsPlayed = 0
-        self.width = 800
-        self.height = 600
+        self.width = 1600
+        self.height = 900
         self.initPlayers(nplayers)
         self.seednumber = seed
         random.seed(self.seednumber)
@@ -402,12 +402,18 @@ class Engine:
             if len(split)<3:
                 for g in split:
                     h.village.territory.remove(g)
+                    g.hasWatchTower = False
                     g.village = None
                     g.owner = 0
             elif h.village.hex not in split:
-                h.village.owner.addVillage(Village(random.choice(split), h.village.owner, split))
+                t = Village(random.choice(split), h.village.owner, split)
+                h.village.owner.addVillage()
                 for g in split:
                     h.village.territory.remove(g)
+                    if g.occupant:
+                        t.units.append(g.occupant)
+                        g.occupant.village = t
+                        h.village.units.remove(g.occupant)
 
         if h.occupant:
             h.village.killUnit(h.occupant)
@@ -524,11 +530,11 @@ class Engine:
         toPlant = []
         for h in self.grid.hexes.values():
             if h.hasTree:
-                temp = [g for g in h.neighbours if not g.hasTree and not g.hasRoad and not g.hasWatchTower and not g.hasTombstone and not (g.village and g.village.hex == g) and not g.occupant]
-                if temp:
-                    g= random.choice(h.neighbours)
-                    if random.random()>.5 and not g.hasTree and not g.hasRoad and not g.hasWatchTower and not g.hasTombstone and not (g.village and g.village.hex == g) and not g.occupant:
-                        toPlant.append(g)
+                #temp = [g for g in h.neighbours if not g.hasTree and not g.hasRoad and not g.hasWatchTower and not g.hasTombstone and not (g.village and g.village.hex == g) and not g.occupant]
+                #if temp:
+                g= random.choice(h.neighbours)
+                if random.random()>.5 and not g.hasTree and not g.hasRoad and not g.hasWatchTower and not g.hasTombstone and not (g.village and g.village.hex == g) and not g.occupant:
+                    toPlant.append(g)
         for h in toPlant:
             h.putTree()
 
@@ -537,7 +543,8 @@ class Engine:
             for t in v.territory:
                 if t.hasTombstone:
                     t.removeTomb()
-                    t.putTree()
+                    if not t.occupant:
+                        t.putTree()
 
     def buildPhase(self,player):
         for v in player.villages:
