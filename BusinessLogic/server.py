@@ -127,6 +127,10 @@ class Room():
             self.game_id = game_id
             self.saved_game = saved_game
 
+    def game_end(self):
+        with self._room_lock:
+            self.game_started = False
+
     def close(self):
         """set _is_closed to True"""
         with self._room_lock:
@@ -170,7 +174,10 @@ class ClientSocket(threading.Thread):
     def _socket_address(self):
         """get the socket address of this client"""
         if self.socket and not self.connection_broken:
-            return self.socket.getpeername()
+            try:
+                return self.socket.getpeername()
+            except Exception:
+                return None
 
     @property
     def _player_list(self):
@@ -563,7 +570,7 @@ class ClientSocket(threading.Thread):
                 p.update_player_stats(new_game=True, new_win=True)
             else:
                 p.update_player_stats(new_game=True)
-        self.room.game_started = False
+        self.room.game_end()
         self.broadcast_msg(GameEnd())
         # self.broadcast_msg(self._sendroomlist)
         self.broadcast_msg(self._sendroom_msg)
@@ -588,7 +595,8 @@ class ClientSocket(threading.Thread):
                                "not broken")
         else:
             logger.warning("reconnection msg does not have username or "
-                           "username is un-registered with server")
+                           "username is un-registered with server: "
+                           "{}".format(username))
 
     def handle_message(self, msg):
         """
@@ -764,7 +772,7 @@ class Server():
         :rtype : Room
         """
         with self._rooms_lock:
-            rand_name = self._room_names[randint(0, len(self._room_names))]
+            rand_name = self._room_names[randint(0, len(self._room_names) - 1)]
             ":type: str"
             while self.get_room(rand_name):
                 rand_name += "+"
@@ -786,7 +794,7 @@ class Server():
         """return a list of rooms not in game"""
         with self._rooms_lock:
             ret = [k for k, v in self._rooms.items() if not v.game_started]
-            assert (ret <= list(self._rooms.keys()))  # lobby room is a subset
+            logger.debug("debug only: {}".format(ret))
             return ret
 
     # endregion
