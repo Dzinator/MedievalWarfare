@@ -407,7 +407,7 @@ class Engine:
                     g.owner = 0
             elif h.village.hex not in split:
                 t = Village(random.choice(split), h.village.owner, split)
-                h.village.owner.addVillage()
+                h.village.owner.addVillage(t)
                 for g in split:
                     h.village.territory.remove(g)
                     if g.occupant:
