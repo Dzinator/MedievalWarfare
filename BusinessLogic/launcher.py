@@ -196,7 +196,7 @@ class Main(QWidget):
         pw = QLineEdit(self)
         pw.setStyleSheet("background-color:#ffffff; font-family : 'Impact'; color: #009933; border: 0px outset #aaaaaa;")
         pw.setText("Password")
-		pw.QLineEdit(Password)
+		pw.setEchoMode(QLineEdit.Password)
         fields.addWidget(pw)
 
         spacer1 = QWidget(self)
