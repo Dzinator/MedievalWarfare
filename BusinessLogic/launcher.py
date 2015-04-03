@@ -9,7 +9,7 @@ from message import *
 class ThreadDispatcher(QThread):
     def __init__(self, parent):
         QThread.__init__(self)
-        self.client = Client('142.157.148.39', 8000, "aaron", self)
+        self.client = Client('192.168.3.105', 8000, "julie", self)
         self.parent = parent
         self.name = ""
         self.running = True
@@ -189,13 +189,14 @@ class Main(QWidget):
         fields.addWidget(title)
         
         username = QLineEdit(self)
-        username.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #009933; border: 0px outset #aaaaaa;")
+        username.setStyleSheet("background-color:#ffffff; font-family : 'Impact'; color: #009933; border: 0px outset #aaaaaa;")
         username.setText("Username")
         fields.addWidget(username)        
 
         pw = QLineEdit(self)
-        pw.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #009933; border: 0px outset #aaaaaa;")
+        pw.setStyleSheet("background-color:#ffffff; font-family : 'Impact'; color: #009933; border: 0px outset #aaaaaa;")
         pw.setText("Password")
+		pw.QLineEdit(Password)
         fields.addWidget(pw)
 
         spacer1 = QWidget(self)
@@ -238,7 +239,7 @@ class Main(QWidget):
         self.screen1.setLayout(layout2)
         self.listLobby = QListWidget()
         self.listLobby.setAlternatingRowColors(True)
-        self.listLobby.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;")
+        self.listLobby.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #000000; border: 0px outset #aaaaaa;")
        
         layout2.addWidget(self.listLobby)
 
@@ -271,7 +272,7 @@ class Main(QWidget):
         self.screen2.setLayout(layout2)
         self.listPlayers = QListWidget()
         self.listPlayers.setAlternatingRowColors(True)
-        self.listPlayers.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;")
+        self.listPlayers.setStyleSheet("background-color:#ffffff; font-family : 'Segoe Script'; color: #000000; border: 0px outset #aaaaaa;")
         layout2.addWidget(self.listPlayers)
 
         buttons = QVBoxLayout()
@@ -279,7 +280,7 @@ class Main(QWidget):
         buttons.setSpacing(0)
         buttons.setContentsMargins(0,0,0,0)
         self.name = QLabel("Lobby 1")
-        self.name.setStyleSheet("font-size: 20px; ")
+        self.name.setStyleSheet("font-size: 20px; font-family : 'Prince Valiant'; color: #009933;")
         self.name.setFixedSize(100,30)
         buttons.addWidget(self.name)
         
@@ -288,12 +289,12 @@ class Main(QWidget):
         buttons.addWidget(spacer)
 
         mapName = QLabel("Map:")
-        mapName.setStyleSheet("font-size: 14px; ")
+        mapName.setStyleSheet("font-size: 14px; font-family : 'Prince Valiant'; color: #009933; ")
         mapName.setFixedSize(100,30)
         buttons.addWidget(mapName)
         
         self.maps = QComboBox(self)
-        self.maps.setStyleSheet("background-color:#ffffff; color: #000000; border: 0px outset #aaaaaa;font-size: 10px; ")
+        self.maps.setStyleSheet("background-color:#ffffff; font-family : 'Becker'; color: #009933; border: 0px outset #aaaaaa;font-size: 10px; ")
         self.maps.currentIndexChanged[str].connect(lambda: self.dispatcher.loadMap(self.maps.currentText()))
 
         buttons.addWidget(self.maps)
