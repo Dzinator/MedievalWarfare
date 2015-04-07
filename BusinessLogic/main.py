@@ -456,8 +456,8 @@ class Engine:
                 h.occupant = unit
                 unit.moved = True
                 temp = True
-            elif path and path[1].village.wood>=2:
-                temp ==True
+            elif path and unit.village.wood>=2:
+                temp =True
                 #fire cannon
                 if path[1].occupant:
                     path[1].village.killUnitPlaceTomb(path[1].occupant)
@@ -519,8 +519,6 @@ class Engine:
                 unit.gatherWood()
             if h.hasTombstone and unit.type<3:
                 unit.removeTombstone()
-            
-
         return ret
 
     def newGame(self, players, mapData):
