@@ -15,8 +15,8 @@ class Village:
     hitpoints = {0:1, 1:2, 2:5, 3:10}
     def __init__(self, h, p, t):
         self.type = 0
-        self.gold = 1000 #temp
-        self.wood = 100 #temp
+        self.gold =7
+        self.wood = 0
         self.hex = h
         self.hex.removeTree()
         self.units = []
