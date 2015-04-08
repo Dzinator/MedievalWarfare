@@ -9,7 +9,7 @@ from message import *
 class ThreadDispatcher(QThread):
     def __init__(self, parent):
         QThread.__init__(self)
-        self.client = Client('192.168.3.105', 8000, "julie", self)
+        self.client = Client('142.157.151.127', 8000, "julie", self)
         self.parent = parent
         self.name = ""
         self.running = True
@@ -124,7 +124,7 @@ class Main(QWidget):
      
         self.setWindowFlags(QtCore.Qt.FramelessWindowHint)
         self.resize(600, 300)
-        self.move(300, 300)
+        'self.move(300, 300)'
         self.setWindowTitle('Simple')
 
         self.mainLayout = QVBoxLayout()
@@ -189,14 +189,14 @@ class Main(QWidget):
         fields.addWidget(title)
         
         username = QLineEdit(self)
-        username.setStyleSheet("background-color:#ffffff; font-family : 'Impact'; color: #009933; border: 0px outset #aaaaaa;")
+        username.setStyleSheet("background-color:#ffffff; font-family : 'Impact'; color: #000000; border: 0px outset #aaaaaa;")
         username.setText("Username")
         fields.addWidget(username)        
 
         pw = QLineEdit(self)
-        pw.setStyleSheet("background-color:#ffffff; font-family : 'Impact'; color: #009933; border: 0px outset #aaaaaa;")
+        pw.setStyleSheet("background-color:#ffffff; font-family : 'Impact'; color: #000000; border: 0px outset #aaaaaa;")
         pw.setText("Password")
-		pw.setEchoMode(QLineEdit.Password)
+        pw.setEchoMode(QLineEdit.Password)
         fields.addWidget(pw)
 
         spacer1 = QWidget(self)
