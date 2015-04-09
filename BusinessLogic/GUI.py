@@ -236,8 +236,9 @@ class Overlay(Element):
         super().__init__(x,y,w,h,c)
         self.text = Text(x-w+size+0.01,y+h-size-0.01,size,text)
 
-    def update(self, text):
+    def update(self,x,y, text):
         self.w = len(text)*self.size+.01
+        self.centre = [x,y]
         self.text.changeText(text, self.centre[0]-self.w+self.size+0.01,self.centre[1]+self.h-self.size-0.01)
         super().update()
 
@@ -296,7 +297,7 @@ class Path:
     def path(self, path):
         self.count = len(path)
         if path:
-            g_overlayCOffset_buffer_data = np.array([[1,1,0,0] for h in path], dtype=np.float32)
+            g_overlayCOffset_buffer_data = np.array([[1,0,0,0] if h.occupant or (h.village and h.village.hex == h) else [1,1,0,0]  for h in path], dtype=np.float32)
             g_overlayOffset_buffer_data = np.array([h.centre for h in path], dtype=np.float32)
 
             glBindBuffer(GL_ARRAY_BUFFER, self.overlaycffsetbuffer)
@@ -390,8 +391,8 @@ class UI:
         self.bottomBar = Element(-aspect, self.height,2*aspect, 0.03,[0,0,0,1])
         self.topBar = Element(-aspect, -self.height,2*aspect, 0.03,[0,0,0,1])
         
-        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.buildMeadow(),lambda: True if self.gui.selected and self.gui.selected.occupant and self.gui.selected.occupant.type<3 and not self.gui.selected.hasMeadow and not self.gui.selected.occupant.moved else False, "build meadow"))
-        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.buildRoad(),lambda: True if self.gui.selected and self.gui.selected.occupant and self.gui.selected.occupant.type<3 and not self.gui.selected.hasRoad and not self.gui.selected.occupant.moved else False, "build road"))
+        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.buildMeadow(),lambda: True if self.gui.selected and self.gui.selected.occupant and self.gui.selected.occupant.type<1 and not self.gui.selected.hasMeadow and not self.gui.selected.occupant.moved else False, "build meadow"))
+        self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.buildRoad(),lambda: True if self.gui.selected and self.gui.selected.occupant and self.gui.selected.occupant.type<1 and not self.gui.selected.hasRoad and not self.gui.selected.occupant.moved else False, "build road"))
         self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.upgradeUnit(1),lambda: True if self.gui.selected and self.gui.selected.occupant and self.gui.selected.occupant.type<1 and self.gui.selected.village.gold>=10*(1-self.gui.selected.occupant.type) else False, "upgrade infantry"))
         self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.upgradeUnit(2),lambda: True if self.gui.selected and self.gui.selected.occupant and self.gui.selected.occupant.type<2 and self.gui.selected.village.type and self.gui.selected.village.gold>=10*(2-self.gui.selected.occupant.type) >0 else False, "upgrade soldier"))
         self.unitButtons.append(Button(0,self.height,.22,.03, lambda: self.gui.upgradeUnit(3), lambda: True if self.gui.selected and self.gui.selected.occupant and self.gui.selected.occupant.type<3 and self.gui.selected.village.type >1 and not self.gui.selected.occupant.action and self.gui.selected.village.gold>=10*(3-self.gui.selected.occupant.type) else False, "upgrade knight"))
@@ -873,7 +874,7 @@ class Gui:
         
     def updateObjectBuffers(self):
         if self.selected and self.selected.village and self.selected.village.owner == self.engine.players[self.player]:
-            self.villageOverlays[self.selected.village].update("w:"+str(self.selected.village.wood)+"  g:"+str(self.selected.village.gold))
+            self.villageOverlays[self.selected.village].update(self.selected.village.hex.centre[0], self.selected.village.hex.centre[1]+.05,"w:"+str(self.selected.village.wood)+"  g:"+str(self.selected.village.gold))
         for v in self.engine.players[self.player].villages:
             if v not in self.villageOverlays:
                 self.villageOverlays[v] = Overlay(v.hex.centre[0], v.hex.centre[1]+.05, 0.2, 0.025, "w:"+str(v.wood)+"  g:"+str(v.gold), 0.015, [0.8,0.8,0.8,0.5])
@@ -883,7 +884,7 @@ class Gui:
             if v not in self.engine.players[self.player].villages:
                 temp.append(v)
             else:
-                self.villageOverlays[v].update("w:"+str(v.wood)+"  g:"+str(v.gold))
+                self.villageOverlays[v].update(v.hex.centre[0], v.hex.centre[1]+.05, "w:"+str(v.wood)+"  g:"+str(v.gold))
         for v in temp:
             del self.villageOverlays[v]     
         offset_array = [village.hex.centre for player in self.engine.players.values() for village in player.villages]+[unit.hex.centre for player in self.engine.players.values() for village in player.villages for unit in  village.units]
