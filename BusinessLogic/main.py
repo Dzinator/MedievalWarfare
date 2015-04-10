@@ -309,8 +309,8 @@ class Engine:
         self.turn = 1
         self.rounds = 0
         self.roundsPlayed = 0
-        self.width = 800
-        self.height = 600
+        self.width = 1600
+        self.height = 900
         self.initPlayers(nplayers)
         self.seednumber = seed
         random.seed(self.seednumber)
@@ -530,9 +530,10 @@ class Engine:
             if h.hasTree:
                 #temp = [g for g in h.neighbours if not g.hasTree and not g.hasRoad and not g.hasWatchTower and not g.hasTombstone and not (g.village and g.village.hex == g) and not g.occupant]
                 #if temp:
-                g= random.choice(h.neighbours)
-                if random.random()>.5 and not g.hasTree and not g.hasRoad and not g.hasWatchTower and not g.hasTombstone and not (g.village and g.village.hex == g) and not g.occupant:
-                    toPlant.append(g)
+                if h.neighbours:
+                    g= random.choice(h.neighbours)
+                    if random.random()>.5 and not g.hasTree and not g.hasRoad and not g.hasWatchTower and not g.hasTombstone and not (g.village and g.village.hex == g) and not g.occupant:
+                        toPlant.append(g)
         for h in toPlant:
             h.putTree()
 
